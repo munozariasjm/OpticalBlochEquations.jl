@@ -9,11 +9,23 @@ using LinearAlgebra
 using WignerSymbols
 using LoopVectorization
 using PhysicalConstants.CODATA2018
+using ProgressMeter
+using MutableNamedTuples
+using DifferentialEquations
 
 const h = PlanckConstant.val
 const ħ = h / 2π
 const c = SpeedOfLightInVacuum.val
 export h, ħ, c
+
+macro obe_params(fields_tuple)
+    fields = fields_tuple.args
+    esc(
+        quote
+            NamedTuple{Tuple($fields)}(($fields_tuple))
+        end)
+end
+export @obe_params
 
 macro with_unit(arg1, arg2)
     arg2 = @eval @u_str $arg2
@@ -21,318 +33,285 @@ macro with_unit(arg1, arg2)
 end
 export @with_unit
 
-macro params(fields_tuple)
-    fields = fields_tuple.args
-    esc(
-        quote
-            NamedTuple{Tuple($fields)}(($fields_tuple))
-        end)
-end
-export @params
-
-const sph2cart = @SMatrix [
-    -1/√2 +1/√2 0;
-    +im/√2 +im/√2 0;
-    0 0 1;
+const cart2sph = @SMatrix [
+    +1/√2 +im/√2 0;
+    0 0 1
+    -1/√2 +im/√2 0;
 ]
+export cart2sph
+
+const sph2cart = inv(cart2sph)
 export sph2cart
 
-const ϵ₊ = @SVector [-1/√2, -im/√2, 0]
-const ϵ₋ = @SVector [ 1/√2, -im/√2, 0]
-const ϵ₀ = @SVector [    0,      0, 1]
+const x̂ = @SVector [1,0,0]
+const ŷ = @SVector [0,1,0]
+const ẑ = @SVector [0,0,1]
+export x̂, ŷ, ẑ
+export x̂, ŷ, ẑ
+
+const ϵ₊ = SVector{3, ComplexF64}(-1/√2, -im/√2, 0) # in Cartesian representation
+const ϵ₋ = SVector{3, ComplexF64}(+1/√2, -im/√2, 0)
+const ϵ₀ = SVector{3, ComplexF64}(0.0, 0.0, 1.0)
 const ϵ = [ϵ₋, ϵ₀, ϵ₊]
 export ϵ₊, ϵ₋, ϵ₀
 export ϵ
 
+const σ⁻ = @SVector [1.0, 0.0, 0.0]
+const σ⁺ = @SVector [0.0, 0.0, 1.0]
+export σ⁻, σ⁺
+
 const qs = @SVector [-1, 0, 1]
 export qs
-
-x̂ = @SVector [1,0,0]
-ŷ = @SVector [0,1,0]
-ẑ = @SVector [0,0,1]
-#export x̂, ŷ, ẑ
-
-# @with_kw struct Hamiltonian12
-#     states::Vector{State}
-#     H::StructArray{<:Complex} = StructArray(zeros(ComplexF64, length(states), length(states)))
-#     Hsubs::Vector{StructArray{<:Complex}} = []
-# end
-# export Hamiltonian12
-
-# function make_hamiltonian(states::Vector(State), lasers::Vector(Laser))
-#     H = Hamiltonian(; states)
-#     return H
-# end
 
 @with_kw struct Laser
     k::SVector{3, Float64}         # k-vector
     ϵ_re::SVector{3, Float64}      # real part of polarization
     ϵ_im::SVector{3, Float64}      # imaginary part of polarization
+    ϵ_cart::SVector{3, ComplexF64} # polarization in cartesian coordinates 
     ω::Float64                     # frequency
     s::Float64                     # saturation parameter
     kr::Float64                    # value of k ⋅ r, defaults to 0
-    f_re_q::SVector{3, Float64}    # real part of f = exp(i(kr - ωt))
-    f_im_q::SVector{3, Float64}    # imag part of f = exp(i(kr - ωt))
+    E::MVector{3, ComplexF64}      # f = exp(i(kr - ωt))
     re::Float64
     im::Float64
-    Laser(k, ϵ, ω, s) = new(k, real.(ϵ), imag.(ϵ), ω, s, 0.0, SVector(0, 0, 0), SVector(0, 0, 0), 1.0, 0.0)
+    Laser(k, ϵ, ω, s) = new(k, real.(ϵ), imag.(ϵ), sph2cart * ϵ, ω, s, 0.0, MVector(0.0, 0.0, 0.0), 1.0, 0.0)
 end
 export Laser
 
-@with_kw struct Field
-    k::SVector{3, Float64}      # k-vector
-    e::SVector{3, ComplexF64}   # polarization
-    ω::Float64                  # frequency
-    s::Float64                  # saturation parameter
-    fre::SVector{3, Float64}
-    fim::SVector{3, Float64}
-    Hqm::Array{Float64, 2}
-    Hq0::Array{Float64, 2}
-    Hqp::Array{Float64, 2}
+evaluate_field(field::Laser, k, r, ω, t) = (field.ϵ + im * field.ϵ_im) * cis(k * r - ω * t)
+export evaluate_field
+
+@with_kw struct Field{T<:Function}
+    f::T                                                # function for the field
+    ω::Float64                                          # angular frequency of field
+    s::Float64                                          # saturation parameter
+    ϵ::SVector{3, Float64}                              # polarization vector
+    k::SVector{3, Float64} = zeros(Float64, 3)          # k-vector
+    E::MVector{3, ComplexF64} = zeros(ComplexF64, 3)    # the actual field components
 end
+export Field
+
+# @with_kw struct Field_Array1{T<:Function}
+#     f::T                                            # function for the field
+#     E::Vector{Float64} = zeros(ComplexF64, 3)   # the actual field components
+# end
+# export Field_Array1
 
 @with_kw struct State
     F::HalfInt                          # angular quantum number
     m::HalfInt                          # projection of angular quantum number
-    ω::Float64                          # frequency
+    E::Float64                          # frequency
     μ::Float64                          # magnetic moment
     Γ::Union{Nothing, Float64}=nothing  # linewidth (defaults to `nothing` for ground states)
 end
 # export State
 
-function define_field(k, e, ω, s)
-    fre = zeros(Float64, 3)
-    fim = zeros(Float64, 3)
-    for q in eachindex(qs)
-        dotted = e ⋅ ϵ[q]
-        fre[q] = real(dotted)
-        fim[q] = imag(dotted)
-    end
-    Hqm = zeros(Float64, (3, 3))
-    Hq0 = zeros(Float64, (3, 3))
-    Hqp = zeros(Float64, (3, 3))
-    return Field(k, e, ω, s, fre, fim, Hqm, Hq0, Hqp)
-end
-export define_field
-
-@with_kw struct Manifold
-    F::HalfInt                          # angular quantum number
-    states::Vector{State}
-end
-manifold(; F, ω, μ, Γ=nothing) = Manifold(F, [State(F=F, m=m, ω=ω, μ=μ, Γ=Γ) for m in -F:F])
-export manifold
+# function define_field(k, e, ω, s)
+#     fre = zeros(Float64, 3)
+#     fim = zeros(Float64, 3)
+#     for q in eachindex(qs)
+#         dotted = e ⋅ ϵ[q]
+#         fre[q] = real(dotted)
+#         fim[q] = imag(dotted)
+#     end
+#     Hqm = zeros(Float64, (3, 3))
+#     Hq0 = zeros(Float64, (3, 3))
+#     Hqp = zeros(Float64, (3, 3))
+#     return Field(k, e, ω, s, fre, fim, Hqm, Hq0, Hqp)
+# end
+# export define_field
 
 # Structure for quantum jumps from state `s` to state `s′` with rate `r`
 struct Jump
     s ::Int64
     s′::Int64
-    r ::Float64
+    q::Int64
+    r ::ComplexF64
 end
 
-# Round `val` to the nearest multiple of `prec`
-round_to_mult(val, prec) = (inv_prec = 1 / prec; round.(val * inv_prec) / inv_prec)
+function schrödinger(particle, states, H₀, fields, d, d_mag, ψ, should_round_freqs; λ=1.0, freq_res=1e-2)
 
-function round_freq(ω, Γ, freq_res)
-    ω_min = freq_res * Γ
-    return round_to_mult(ω, ω_min)
-end
-export round_freq
-
-function round_vel(v, λ, Γ, freq_res)
-    v_min = freq_res * Γ * λ / 2π
-    return round_to_mult(v, v_min)
-end
-export round_vel
-
-function schrödinger(states, lasers, d, f, p)
+    period = 2π / freq_res
 
     n_states = length(states)
-    n_lasers = length(lasers)
+    n_fields = length(fields)
 
-    lasers = StructArray(lasers)
+    states = StructArray(states)
+    if n_fields > 0
+        fields = StructArray(fields)
+    end
 
-    r = @SVector [0.,0.,0.]
-    v = @SVector [0.,0.,0.]
+    k = 2π / λ
+    particle.r0 *= 2π
+    # particle.v /= (Γ / k) # velocity is in units of Γ/k
+    # Convert to angular frequencies
+    for i ∈ eachindex(states)
+        states.E[i] *= 2π
+    end
+
+    if should_round_freqs
+        round_freqs!(states, fields, freq_res)
+        particle.v = round_vel(particle.v, freq_res)
+    end
+
+    r0 = particle.r0
+    r = particle.r
+    v = particle.v
 
     type_complex = ComplexF64
-    type_real    = Float64
+
+    B = MVector(0.0, 0.0, 0.0)
 
     H = StructArray( zeros(type_complex, n_states, n_states) )
 
-    # Define the optical Hamiltonian; it has dimensions (k, q)
-    for i ∈ 1:n_states, j ∈ i:n_states
-        for k in eachindex(lasers)
-            lasers[k].Hqm[i,j] += d[1,i,j] * (lasers[k].e ⋅ ϵ[1])
-            lasers[k].Hq0[i,j] += d[2,i,j] * (lasers[k].e ⋅ ϵ[2])
-            lasers[k].Hqp[i,j] += d[3,i,j] * (lasers[k].e ⋅ ϵ[3])
-            lasers[k].Hqm[j,i] += d[1,i,j] * (lasers[k].e ⋅ ϵ[1])
-            lasers[k].Hq0[j,i] += d[2,i,j] * (lasers[k].e ⋅ ϵ[2])
-            lasers[k].Hqp[j,i] += d[3,i,j] * (lasers[k].e ⋅ ϵ[3])
-        end
-    end
+    ω = [s.E for s in states]
+    eiωt = StructArray(zeros(type_complex, n_states))
 
-    ψ = zeros(type_complex, n_states)
+    # Compute cartesian indices to indicate nonzero transition dipole moments in `d`
+    # Indices below the diagonal of the Hamiltonian are removed, since those are defined via taking the conjugate
+    d_nnz_m = [cart_idx for cart_idx ∈ findall(d[:,:,1] .!= 0) if cart_idx[2] >= cart_idx[1]]
+    d_nnz_0 = [cart_idx for cart_idx ∈ findall(d[:,:,2] .!= 0) if cart_idx[2] >= cart_idx[1]]
+    d_nnz_p = [cart_idx for cart_idx ∈ findall(d[:,:,3] .!= 0) if cart_idx[2] >= cart_idx[1]]
+    d_nnz = [d_nnz_m, d_nnz_0, d_nnz_p]
+
     dψ = deepcopy(ψ)
-    ψ[1] = 1
     ψ_soa = StructArray(ψ)
     dψ_soa = StructArray(dψ)
 
-    p = @params (H, ψ_soa, dψ_soa, states, lasers, r, v, f, p)
+    H₀ = StructArray(H₀)
+
+    p = MutableNamedTuple(
+        H=H, ψ=ψ, dψ=dψ, ψ_soa=ψ_soa, dψ_soa=dψ_soa, ω=ω, eiωt=eiωt, Js=Jump[],
+        states=states, fields=fields, r0=r0, r=r, v=v, d=d, d_nnz=d_nnz, λ=λ, d_m=d_mag,
+        period=period, B=B, k=k, freq_res=freq_res, H₀=H₀)
 
     return (dψ, ψ, p)
 end
 export schrödinger
 
-mutable struct Particle
-    r0::SVector{3, Float64}
-    r::SVector{3, Float64}
-    v::SVector{3, Float64}
+@with_kw mutable struct Particle
+    r0::MVector{3, Float64} = MVector(0.0, 0.0, 0.0)
+    r::MVector{3, Float64}  = MVector(0.0, 0.0, 0.0)
+    v::MVector{3, Float64}  = MVector(0.0, 0.0, 0.0)
+end
+export Particle
+
+# Round `val` to the nearest multiple of `prec`
+round_to_mult(val, prec) = (inv_prec = 1 / prec; round.(val * inv_prec) / inv_prec)
+
+function round_freq(ω, freq_res)
+    ω_min = freq_res
+    return round_to_mult(ω, ω_min)
+end
+export round_freq
+
+function round_vel(v, freq_res)
+    v_min = freq_res
+    return round_to_mult(v, v_min)
+end
+export round_vel
+
+function round_v_by_norm(v, digits)
+    v_norm = norm(v)
+    return v ./ (v_norm / round(v_norm, digits=digits))
 end
 
-"""
+function round_freqs!(states, fields, freq_res)
+    """
+    Rounds frequencies of state energies and fields by a common denominator.
+    
     freq_res::Float: all frequencies are rounded by this value (in units of Γ)
-"""
-function obe(states, lasers, d, ρ; freq_res=1e-2)
-
-    Γs = [s.Γ for s in states]
-    Γ = maximum(filter(x -> x != nothing, Γs))
-
-    λs = [c / s.ω for s in states]
-    λs_nonzero = [c / s.ω for s in states] .!= Inf
-    λ = 2π * minimum(λs[λs_nonzero])
-
-    n_states = length(states)
-    n_lasers = length(lasers)
-
-    states = StructArray(states)
-    lasers = StructArray(lasers)
-
-    for i in eachindex(lasers)
-        lasers.ω[i] = round_freq(lasers.ω[i], Γ, freq_res)
-        lasers.ω[i] /= Γ
+    """
+    for i in eachindex(fields)
+        fields.ω[i] = round_freq(fields.ω[i], freq_res)
     end
     for i in eachindex(states)
-        states.ω[i] = round_freq(states.ω[i], Γ, freq_res)
-        states.ω[i] /= Γ
+        states.E[i] = round_freq(states.E[i], freq_res)
+    end
+    return nothing
+end
+
+function round_params(p)
+    round_freqs!(p.states, p.fields, p.freq_res)
+    p.v .= round_vel(p.v, p.freq_res)
+end
+export round_params
+
+function obe(particle, states, fields, d, d_m, should_round_freqs, include_jumps; λ=1.0, Γ=2π, freq_res=1e-2)
+
+    period = 2π / freq_res
+
+    n_states = length(states)
+    n_fields = length(fields)
+
+    states = StructArray(states)
+    if n_fields > 0
+        fields = StructArray(fields)
     end
 
+    k = 2π / λ
+    particle.r0 *= 2π #(1 / k)  # `r` is in units of 1/k
+    particle.v /= (Γ / k) #(Γ / k)   # velocity is in units of Γ/k
+    # Convert to angular frequencies
+    for i ∈ eachindex(fields)
+        fields.ω[i] /= Γ
+    end
+    for i ∈ eachindex(states)
+        states.E[i] *= 2π
+        states.E[i] /= Γ
+    end
+
+    if should_round_freqs
+        round_freqs!(states, fields, freq_res)
+        particle.v = round_vel(particle.v, freq_res)
+    end
+
+    r0 = particle.r0
+    r = particle.r
+    v = particle.v
+
     type_complex = ComplexF64
-    type_real = Float64
 
-    H       = StructArray( zeros(type_complex, n_states, n_states) )
-    H_adj   = StructArray( zeros(type_complex, n_states, n_states) )
-    # HJ      = zeros(type_real, n_states, n_states)
-    HJ      = zeros(Float64, n_states)
-    Hₒ      = [zeros(type_real, n_states, n_states) for l in lasers, q in qs]
-
-    # Define the optical Hamiltonian; it has dimensions (k, q)
-    # for k in eachindex(lasers)
-    #     for s in eachindex(states), s′ in s:n_states
-    #         q = Int64(states[s′].m - states[s].m)
-    #         if abs(q) <= 1
-    #             laser_ϵ = lasers[k].ϵ_re + im * lasers[k].ϵ_im
-    #             print(laser_ϵ)
-    #             print(ϵ[q+2])
-    #             if !iszero(laser_ϵ ⋅ ϵ[q+2])
-    #                 # Hₒ[k, q+2][s, s′] = d[s, s′, q+2]
-    #                 # Hₒ[k, q+2][s′, s] = d[s, s′, q+2]
-    #                 lasers[k].Hq[q+2][s, s′] = d[s, s′, q+2]
-    #                 lasers[k].Hq[q+2][s′, s] = d[s, s′, q+2]
-    #             end
-    #         end
-    #     end
-    # end
-
-    # Define the magnetic Hamiltonian; it has dimensions (q)
-    # μ = (s, s′, q) -> - s.g * (-1)^(s.F - s′.m) * sqrt(s.F * (s.F + 1) * (2s.F + 1))
-    #     * wigner3j(s.F, 1, s′.F, -s.m, q, s′.m)
-    # for s in eachindex(states), s′ in eachindex(states), q in qs
-    #     if states[s].F == states[s].F # States only mix if they belong to the same F state
-    #         Hₘ[q+2][s, s′] = im * (-1)^q * μ(states[s], states[s′], -q)
-    #     end
-    # end
+    B = MVector(0.0, 0.0, 0.0)
+    H = StructArray( zeros(type_complex, n_states, n_states) )
 
     # Construct an array containing all jump operators, as defined by `d`
     Js = Array{Jump}(undef, 0)
-    for s′ in eachindex(states), s in s′:n_states, q in qs
-        dme = d[s, s′, q+2]
-        # println(dme)
-        if dme != 0 & (states[s′].ω < states[s].ω) # only energy-allowed jumps are generated
-            J = Jump(s, s′, dme)
-            push!(Js, J)
+    if include_jumps
+        for s′ in eachindex(states), s in s′:n_states, q in qs
+            dme = d[s′, s, q+2]
+            # println(dme)
+            if dme != 0 & (states[s′].E < states[s].E) # only energy-allowed jumps are generated
+                J = Jump(s, s′, q, dme)
+                push!(Js, J)
+            end
         end
     end
 
-    for J in Js
-        # Adds the term - (iħ / 2) ∑ᵢ Jᵢ† Jᵢ
-        # We assume jumps take the form Jᵢ = sqrt(Γ)|g⟩⟨e| such that Jᵢ† Jᵢ = Γ|e⟩⟨e|
-        HJ[J.s] -= 0.5 * J.r^2
-    end
+    ω = [s.E for s in states]
+    eiωt = StructArray(zeros(type_complex, n_states))
 
-    ω = [s.ω for s in states]
-    eiωt  = StructArray(zeros(type_complex, n_states))
-
-    dρ = deepcopy(ρ)
-    ρ_soa = StructArray(ρ)
-    dρ_soa = StructArray(dρ)
-
-    # B(r) = [0,0,0]
-
-    conj_mat = ones(Float64, n_states, n_states)
-    for i in 1:n_states, j in 1:n_states
-        if j < i
-            conj_mat[i,j] = -1
-        end
-    end
+    ρ_soa = StructArray(zeros(ComplexF64, n_states, n_states))
+    dρ_soa = deepcopy(ρ_soa)
 
     # Allocate some temporary arrays
-    tmp1 = StructArray(zeros(ComplexF64, n_states, n_states))
-    tmp2 = StructArray(zeros(ComplexF64, n_states, n_states))
+    H₀ = deepcopy(ρ_soa)
+    tmp = deepcopy(ρ_soa)
 
-     # Compute indices to indicate nonzero values in d
-    d_nnz_m = Int64[]
-    d_nnz_0 = Int64[]
-    d_nnz_p = Int64[]
-    d_m = @view d[:,:,1]
-    d_0 = @view d[:,:,2]
-    d_p = @view d[:,:,3]
-    for i in 1:n_states^2
-        if d_m[i] != 0
-            push!(d_nnz_m, i)
-        end
-        if d_0[i] != 0
-            push!(d_nnz_0, i)
-        end
-        if d_p[i] != 0
-            push!(d_nnz_p, i)
-        end
-    end
+    # Compute cartesian indices to indicate nonzero transition dipole moments in `d`
+    # Indices below the diagonal of the Hamiltonian are removed, since those are defined via taking the conjugate
+    d_nnz_m = [cart_idx for cart_idx ∈ findall(d[:,:,1] .!= 0) if cart_idx[2] >= cart_idx[1]]
+    d_nnz_0 = [cart_idx for cart_idx ∈ findall(d[:,:,2] .!= 0) if cart_idx[2] >= cart_idx[1]]
+    d_nnz_p = [cart_idx for cart_idx ∈ findall(d[:,:,3] .!= 0) if cart_idx[2] >= cart_idx[1]]
     d_nnz = [d_nnz_m, d_nnz_0, d_nnz_p]
 
-    particle = Particle([0.,0,0], [0.,0,0], [0.,0,0])
+    p = (H=H, ρ_soa=ρ_soa, dρ_soa=dρ_soa, Js=Js, ω=ω, eiωt=eiωt,
+         states=states, fields=fields, r0=r0, r=r, v=v, Γ=Γ, tmp=tmp, d=d, d_nnz=d_nnz, λ=λ, d_m=d_m,
+         period=period, B=B, k=k, freq_res=freq_res, H₀=H₀)
 
-    t0 = [0.0, 0.0]
-
-    p = @params (H, HJ, ρ, dρ, ρ_soa, dρ_soa, Js, ω, eiωt, states, lasers, particle, Γ, conj_mat, Hₒ, tmp1, tmp2, d, d_nnz, λ, t0)
-
-    return (dρ, ρ, p)
+    return p
 end
 export obe
-
-function update_H_schrödinger!(τ, v, lasers, H)
-
-    @turbo for l in eachindex(lasers)
-        s = lasers.s[l]
-        Ho_laser_m = lasers.Hqm[l]
-        Ho_laser_0 = lasers.Hq0[l]
-        Ho_laser_p = lasers.Hqp[l]
-        for i in eachindex(H)
-            H.re[i] += s * (Ho_laser_m[i] + Ho_laser_0[i] + Ho_laser_p[i])
-        end
-    end
-
-    return nothing
-end
 
 function derivative_force(p, ρ, τ)
 
@@ -356,9 +335,8 @@ function derivative_force(p, ρ, τ)
 
         d_q = @view d[:,:,q]
         d_nnz_q = d_nnz[q]
-        @inbounds for i in d_nnz_q
+        @inbounds for i ∈ d_nnz_q
             F += ampl * d_q[i] * ρ_soa[i] + conj(ampl * d_q[i] * ρ_soa[i])
-            # F += ampl * d_q[i] * ρ[i] + conj(ampl * d_q[i] * ρ[i])
         end
     end
 
@@ -366,105 +344,97 @@ function derivative_force(p, ρ, τ)
 end
 export derivative_force
 
-function force(p, ρ, τ)
-
-    @unpack lasers, Γ, d, d_nnz = p
-
-    r = p.particle.v .* τ
-    update_lasers!(r, lasers, τ)
-
-    base_to_soa!(ρ, p.ρ_soa)
-    update_eiωt!(p.eiωt, p.ω, τ)
-    Heisenberg!(p.ρ_soa, p.eiωt)
-
-    F = SVector(0, 0, 0)
-
-    for q in 1:3
-
-        ampl = SVector(0, 0, 0)
-        @inbounds for i in 1:length(lasers)
-            s = lasers.s[i]
-            k = lasers.k[i]
-            ω = lasers.ω[i]
-            # With SI units, should be x = -h * Γ * sqrt(s) / (2 * √2 * p.λ)
-            x = sqrt(s) / (2 * √2)
-            # x = h * Γ * sqrt(s) / (2 * √2 * p.λ)
-            ampl += k * x * (im * lasers.f_re_q[i][q] - lasers.f_im_q[i][q])
-        end
-        # Note h * Γ / λ = 2π ħ * Γ / Λ = ħ * k * Γ, so this has units units of ħ k Γ
-
-        d_q = @view d[:,:,q]
-        d_nnz_q = d_nnz[q]
-        # print(d_nnz_q)
-        @inbounds for i in d_nnz_q
-            # print(ampl * d_q[i] * p.ρ_soa[i] + conj(ampl * d_q[i] * p.ρ_soa[i]))
-            F += ampl * d_q[i] * p.ρ_soa[i] + conj(ampl * d_q[i] * p.ρ_soa[i])
-            # F += ampl * d_q[i] * ρ[i] + conj(ampl * d_q[i] * ρ[i])
-        end
+function update_fields!(fields::StructVector{Laser}, r, t)
+    # Fields are represented as ϵ_q * exp(i(kr - ωt)), where ϵ_q is in spherical coordinates
+    for i ∈ eachindex(fields)
+        k = fields.k[i]
+        fields.kr[i] = k ⋅ r
     end
-
-    return real.(F[3])
-end
-export force
-
-function update_lasers!(r, lasers, t)
-    for i in 1:length(lasers)
-        k = lasers.k[i]
-        lasers.kr[i] = k ⋅ r
+    @turbo for i ∈ eachindex(fields)
+        # Compute exp(i(kr - ωt))
+        fields.im[i], fields.re[i] = sincos(- fields.kr[i] - fields.ω[i] * t) # second term needed for Heisenberg picture
     end
-    @turbo for i in 1:length(lasers)
-        lasers.im[i], lasers.re[i] = sincos(lasers.kr[i] - lasers.ω[i] * t)
-    end
-    for i in 1:length(lasers)
-        ϵ_re = lasers.ϵ_re[i]
-        ϵ_im = lasers.ϵ_im[i]
-        re = lasers.re[i]
-        im = lasers.im[i]
-        lasers.f_re_q[i] = ϵ_re * re - ϵ_im * im
-        lasers.f_im_q[i] = ϵ_re * im + ϵ_im * re
+    @simd for i ∈ eachindex(fields)
+        field_value = fields.re[i] + im * fields.im[i]
+        fields.E[i] .= field_value .* (fields.ϵ_re[i] .+ im .* fields.ϵ_im[i])
     end
     return nothing
 end
 
-function update_H!(τ, r, Γ, lasers, H, conj_mat, d, d_nnz)
+# function update_fields!(fields::StructVector{Laser1}, r, t)
+#     for i in 1:length(fields)
+#         kr = fields.k[i] ⋅ r
+#         ω = fields.ω[i]
+#         fields.E[i] .= (fields.ϵ_re[i] + im * fields.ϵ_im[i]) * cis(kr) #* cos(ω * t)
+#     end
+#     return nothing
+# end
 
-    update_lasers!(r, lasers, τ)
+function update_fields!(fields::StructVector{Field{T}}, r, t) where T
+    """
+    Fields must be specified as one of the following types:
+    """
+    for i in eachindex(fields)
+        fields.E[i] .= fields.f[i](fields.ω[i], r, t)
+    end
+    return nothing
+end
+export update_fields!
+
+function update_H!(τ, r, H₀, fields, H, d, d_nnz, B, d_m, Js, ω, Γ)
+    """
+    Anything uncommented in-line is from previous version.
+    """
+    update_fields!(fields, r, τ)
 
     @turbo for i in eachindex(H)
-        H.re[i] = 0
-        H.im[i] = 0
+        H.re[i] = H₀.re[i]
+        H.im[i] = H₀.im[i]
     end
 
-    @inbounds for i in 1:length(lasers)
-        s = lasers.s[i]
+    @inbounds for i ∈ eachindex(fields)
+        s = fields.s[i]
+        ω_field = fields.ω[i]
         x = sqrt(s) / (2 * √2)
-
-        @inbounds for q in 1:3
-            freq = lasers.f_re_q[i][q]
-            fimq = lasers.f_im_q[i][q]
-            if (freq > 1e-10) || (freq < -1e-10) || (fimq > 1e-10) || (fimq < -1e-10)
-                @turbo for i in 1:size(H,1), j in 1:size(H,1)
-                    H.re[i,j] += x * freq * d[i,j,q]
-                    H.im[i,j] += x * fimq * d[i,j,q] * conj_mat[i,j]
+        @inbounds for q ∈ 1:3
+            E_i_q = fields.E[i][q]
+            if norm(E_i_q) > 1e-10
+                d_nnz_q = d_nnz[q]
+                d_q = @view d[:,:,q]
+                @inbounds @simd for cart_idx ∈ d_nnz_q
+                    m, n = cart_idx.I
+                    if abs(ω_field - (ω[n] - ω[m])) < 100 # Do not include very off-resonant terms (terms detuned by >10Γ)
+                        val = x * E_i_q * d_q[m,n]
+                        H[m,n] += val
+                        H[n,m] += conj(val)
+                    end
                 end
-                # TODO: The approach below which iterates only over nonzero dipole moments is a bit faster
-                # d_nnz_q = d_nnz[q]
-                # d_q = @view d[:,:,q]
-                # @inbounds @simd for i in d_nnz_q
-                #     H.re[i] += x * freq * d_q[i]
-                #     H.im[i] += x * fimq * d_q[i] * conj_mat[i]
-                # end
             end
         end
     end
 
-    # @inbounds @simd for q in qs
-    #     β = (μB / (Γ * ħ)) * (B(r) ⋅ ϵ[q+2])
-    #     axpy!(β, Hₘ[q+2], H)
-    # end
+    for J ∈ Js
+        rate = im * J.r^2 / 2
+        H[J.s, J.s] -= rate
+    end
+
+    # Add Zeeman interaction terms, need to optimize this
+    for q ∈ 1:3
+        B_q = 2π * norm(B ⋅ ϵ[q]) # the amount of B-field projected into each spherical component, which are already written in a Cartesian basis
+        for j ∈ axes(H,2), i ∈ axes(H,1)
+            val = B_q * d_m[i,j,4-q]
+            if j > i
+                H[i,j] -= val
+                H[j,i] -= conj(val)
+            elseif i == j
+                H[i,j] -= val
+            end
+        end
+    end
 
     return nothing
 end
+export update_H!
 
 function soa_to_base!(ρ::Array{<:Complex}, ρ_soa::StructArray{<:Complex})
     @inbounds for i in eachindex(ρ, ρ_soa)
@@ -507,8 +477,24 @@ function Heisenberg!(ρ::StructArray{<:Complex}, eiωt::StructArray{<:Complex}, 
 end
 export Heisenberg!
 
-function im_commutator!(C, A, B, tmp1, tmp2, A_diag)
-    @inbounds for i ∈ 1:size(A,1), j ∈ 1:size(B,2)
+function Heisenberg_ψ!(ψ::StructArray{<:Complex}, eiωt::StructArray{<:Complex}, im_factor=1)
+    @turbo for i ∈ 1:size(ψ, 1)
+        cisre = eiωt.re[i]
+        cisim = im_factor * eiωt.im[i]
+        ψ_i_re = ψ.re[i]
+        ψ_i_im = ψ.im[i]
+        ψ.re[i] = ψ_i_re * cisre - ψ_i_im * cisim
+        ψ.im[i] = ψ_i_re * cisim + ψ_i_im * cisre
+    end
+    return nothing
+end
+export Heisenberg_ψ!
+
+function im_commutator!(C, A, B, tmp)
+    # Multiply C = A * B -- (H * ρ)
+    # Add adjoint C = A * B + B† * A†
+    # Multiply by "i"
+    @turbo for i ∈ 1:size(A,1), j ∈ 1:size(B,2)
         Cre = 0.0
         Cim = 0.0
         for k ∈ 1:size(A,2)
@@ -521,65 +507,80 @@ function im_commutator!(C, A, B, tmp1, tmp2, A_diag)
             Cim -= Aik_re * Bkj_im + Aik_im * Bkj_re
         end
         C.re[i,j] = Cre
-        C.im[i,j] = Cim
+        C.im[i,j] = Cim # not sure about this minus sign...
     end
 
-    adjoint!(tmp1, C)
-    C_add_A!(C, tmp1, -1)
-
+    # Add adjoint, which is equivalent to ρ * H, then compute [H, ρ]
+    adjoint!(tmp, C)
+    C_add_A!(C, tmp, -1)
     mul_by_im!(C)
 
-    mul_diagonal!(tmp1, B, A_diag)
-    adjoint!(tmp2, tmp1)
+    # C .= -im * (A * B - B * A')
 
-    C_add_AplusB!(C, tmp1, tmp2, 1, 1)
+    # Add diagonal (jump) elements (ρ * H_jumps), add adjoint (H_jumps * ρ) as well
+    # mul_diagonal!(tmp1, B, A_diag)
+    # adjoint!(tmp2, tmp1)
+
+    # Add everything together
+    # C_add_AplusB!(C, tmp1, tmp2, 1, 1)
 
 end
 export im_commutator!
 
 function ψ!(dψ, ψ, p, τ)
 
-    # @avx p.H .= 0
-    # @avx p.ψ_soa .= ψ
     base_to_soa!(ψ, p.ψ_soa)
-    # Update the Hamiltonian according to the new time τ
-    p.f(p.H, τ, p.p)
-    # update_H_schrödinger!(τ, p.v, p.lasers, p.H)
-    jgemvavx!(p.dψ_soa, p.H, p.ψ_soa)
+    
+    update_H!(τ, p.r, p.H₀, p.fields, p.H, p.d, p.d_nnz, p.B, p.d_m, p.Js, p.ω, nothing)
+    
+    update_eiωt!(p.eiωt, p.ω, τ)
+    # Heisenberg_ψ!(p.ψ_soa, p.eiωt, -1)
+    
+    Heisenberg!(p.H, p.eiωt, -1)
+    mul_by_im_minus!(p.ψ_soa)
+    mul_turbo!(p.dψ_soa, p.H, p.ψ_soa)
+    
+    # Heisenberg_ψ!(p.dψ_soa, p.eiωt, -1)
     soa_to_base!(dψ, p.dψ_soa)
 
     return nothing
 end
 export ψ!
 
+# Note that we specialize to the type of the parameter argument, `p`
 function ρ!(dρ, ρ, p, τ)
 
-    p.particle.r = p.particle.r0 + p.particle.v .* τ
+    p.r .= p.r0 + p.v .* τ
 
     base_to_soa!(ρ, p.ρ_soa)
-    #p.ρ_soa .= ρ
 
     # Update the Hamiltonian according to the new time τ
-    update_H!(τ, p.particle.r, p.Γ, p.lasers, p.H, p.conj_mat, p.d, p.d_nnz)
+    update_H!(τ, p.r, p.H₀, p.fields, p.H, p.d, p.d_nnz, p.B, p.d_m, p.Js, p.ω, p.Γ)
 
     # Apply a transformation to go to the Heisenberg picture
     update_eiωt!(p.eiωt, p.ω, τ)
     Heisenberg!(p.ρ_soa, p.eiωt)
 
     # Compute coherent evolution terms
-    # im_commutator!(p.dρ_soa, p.H, p.ρ_soa, p.A12, p.B12, p.T1, p.T2, p.HJ, p.tmp1, p.tmp2)
-    im_commutator!(p.dρ_soa, p.H, p.ρ_soa, p.tmp1, p.tmp2, p.HJ)
+    im_commutator!(p.dρ_soa, p.H, p.ρ_soa, p.tmp)
 
     # Add the terms ∑ᵢ Jᵢ ρ Jᵢ†
     # We assume jumps take the form Jᵢ = sqrt(Γ)|g⟩⟨e| such that JᵢρJᵢ† = Γ^2|g⟩⟨g|ρₑₑ
-    @inbounds for i in eachindex(p.Js)
+    @inbounds for i ∈ eachindex(p.Js)
         J = p.Js[i]
-        p.dρ_soa.re[J.s′, J.s′] += J.r^2 * p.ρ_soa.re[J.s, J.s]
+        p.dρ_soa[J.s′, J.s′] += J.r^2 * p.ρ_soa[J.s, J.s]
+        @inbounds for j ∈ (i+1):length(p.Js)
+            J′ = p.Js[j]
+            if J.q == J′.q
+                val = J.r * J′.r * p.ρ_soa[J.s, J′.s]
+                p.dρ_soa[J.s′, J′.s′] += val
+                p.dρ_soa[J′.s′, J.s′] += conj(val)
+            end
+        end
     end
 
     # The left-hand side also needs to be transformed into the Heisenberg picture
     # To do this, we require the transpose of the `ω` matrix
-    # Heisenberg!(p.dρ_soa, p.ω_trans, τ)
     Heisenberg!(p.dρ_soa, p.eiωt, -1)
     soa_to_base!(dρ, p.dρ_soa)
 
@@ -603,45 +604,45 @@ function mat_to_vec_minus1!(ρ, ρ_vec)
 end
 export mat_to_vec_minus1!
 
-function ρ_and_force!(du, u, p, τ)
+# function ρ_and_force!(du, u, p, τ)
 
-    p.particle.r = p.particle.v .* τ
+#     p.particle.r = p.particle.v .* τ
 
-    mat_to_vec_minus1!(u, p.ρ)
-    base_to_soa!(p.ρ, p.ρ_soa)
-    #p.ρ_soa .= ρ
+#     mat_to_vec_minus1!(u, p.ρ)
+#     base_to_soa!(p.ρ, p.ρ_soa)
+#     #p.ρ_soa .= ρ
 
-    # Update the Hamiltonian according to the new time τ
-    update_H!(τ, p.particle.r, p.Γ, p.lasers, p.H, p.conj_mat, p.d, p.d_nnz)
+#     # Update the Hamiltonian according to the new time τ
+#     update_H!(τ, p.particle.r, p.lasers, p.H, p.conj_mat, p.d, p.d_nnz)
 
-    # Apply a transformation to go to the Heisenberg picture
-    update_eiωt!(p.eiωt, p.ω, τ)
-    Heisenberg!(p.ρ_soa, p.eiωt)
+#     # Apply a transformation to go to the Heisenberg picture
+#     update_eiωt!(p.eiωt, p.ω, τ)
+#     Heisenberg!(p.ρ_soa, p.eiωt)
 
-    # Compute coherent evolution terms
-    # im_commutator!(p.dρ_soa, p.H, p.ρ_soa, p.A12, p.B12, p.T1, p.T2, p.HJ, p.tmp1, p.tmp2)
-    im_commutator!(p.dρ_soa, p.H, p.ρ_soa, p.tmp1, p.tmp2, p.HJ)
+#     # Compute coherent evolution terms
+#     # im_commutator!(p.dρ_soa, p.H, p.ρ_soa, p.A12, p.B12, p.T1, p.T2, p.HJ, p.tmp1, p.tmp2)
+#     im_commutator!(p.dρ_soa, p.H, p.ρ_soa, p.tmp1, p.tmp2, p.HJ)
 
-    # Add the terms ∑ᵢ Jᵢ ρ Jᵢ†
-    # We assume jumps take the form Jᵢ = sqrt(Γ)|g⟩⟨e| such that JᵢρJᵢ† = Γ^2|g⟩⟨g|ρₑₑ
-    @inbounds for i in eachindex(p.Js)
-        J = p.Js[i]
-        p.dρ_soa.re[J.s′, J.s′] += J.r^2 * p.ρ_soa.re[J.s, J.s]
-    end
+#     # Add the terms ∑ᵢ Jᵢ ρ Jᵢ†
+#     # We assume jumps take the form Jᵢ = sqrt(Γ)|g⟩⟨e| such that JᵢρJᵢ† = Γ^2|g⟩⟨g|ρₑₑ
+#     @inbounds for i in eachindex(p.Js)
+#         J = p.Js[i]
+#         p.dρ_soa.re[J.s′, J.s′] += J.r^2 * p.ρ_soa.re[J.s, J.s]
+#     end
 
-    # The left-hand side also needs to be transformed into the Heisenberg picture
-    # To do this, we require the transpose of the `ω` matrix
-    # Heisenberg!(p.dρ_soa, p.ω_trans, τ)
-    Heisenberg!(p.dρ_soa, p.eiωt, -1)
-    soa_to_base!(p.dρ, p.dρ_soa)
+#     # The left-hand side also needs to be transformed into the Heisenberg picture
+#     # To do this, we require the transpose of the `ω` matrix
+#     # Heisenberg!(p.dρ_soa, p.ω_trans, τ)
+#     Heisenberg!(p.dρ_soa, p.eiωt, -1)
+#     soa_to_base!(p.dρ, p.dρ_soa)
 
-    mat_to_vec!(p.dρ, du)
-    du[end] = derivative_force(p.ρ, p, τ)
-    # u[end] = force(p.ρ, p, τ)
+#     mat_to_vec!(p.dρ, du)
+#     du[end] = derivative_force(p.ρ, p, τ)
+#     # u[end] = force(p.ρ, p, τ)
 
-    return nothing
-end
-export ρ_and_force!
+#     return nothing
+# end
+# export ρ_and_force!
 
 function C_copy_AplusB!(C::Array{<:Real}, A::Array{<:Real}, B::Array{<:Real}, α=1, β=1)
     @turbo for i in eachindex(A, B, C)
@@ -685,6 +686,14 @@ function mul_by_im!(C::StructArray{<:Complex})
     end
 end
 
+function mul_by_im_minus!(C::StructArray{<:Complex})
+    @turbo for i ∈ eachindex(C)
+        a = C.re[i]
+        C.re[i] = C.im[i]
+        C.im[i] = -a
+    end
+end
+
 function mul_diagonal!(C::StructArray{<:Complex}, A::StructArray{<:Complex}, B::Array{<:Real})
     """
     Computes A × B, where B is diagonal and real.
@@ -697,6 +706,7 @@ function mul_diagonal!(C::StructArray{<:Complex}, A::StructArray{<:Complex}, B::
         end
     end
 end
+export mul_diagonal!
 
 function update_T₁T₂!(T1::Array{<:Real}, T2::Array{<:Real}, A::StructArray{<:Complex}, B::StructArray{<:Complex})
     @turbo for i ∈ 1:size(A,1), j ∈ 1:size(B,2)
@@ -708,6 +718,339 @@ function update_T₁T₂!(T1::Array{<:Real}, T2::Array{<:Real}, A::StructArray{<
         end
         T1[i,j] = C1
         T2[i,j] = C2
+    end
+end
+
+# Wigner D-matrix to rotate polarization vector
+# D(cosβ, sinβ, α, γ) = [
+#     (1/2)*(1 + cosβ)*exp(-im*(α + γ)) -(1/√2)*sinβ*exp(-im*α) (1/2)*(1 - cosβ)*exp(-im*(α - γ));
+#     (1/√2)*sinβ*exp(-im*γ) cosβ -(1/√2)*sinβ*exp(im*γ);
+#     (1/2)*(1 - cosβ)*exp(im*(α - γ)) (1/√2)*sinβ*exp(im*α) (1/2)*(1 + cosβ)*exp(im*(α + γ))
+# ]
+function D(cosβ, sinβ, α, γ)
+    γ = -γ
+    # Sign convention is different than the matrix above 
+    return [
+        (1/2)*(1 + cosβ)*exp(-im*(α + γ)) -(1/√2)*sinβ*exp(-im*α) (1/2)*(1 - cosβ)*exp(-im*(α - γ));
+        (1/√2)*sinβ*exp(-im*γ) cosβ -(1/√2)*sinβ*exp(im*γ);
+        (1/2)*(1 - cosβ)*exp(im*(α - γ)) (1/√2)*sinβ*exp(im*α) (1/2)*(1 + cosβ)*exp(im*(α + γ))
+    ]
+end
+
+function rotate_pol(pol, k)
+    # Rotates polarization `pol` onto the quantization axis `k`
+    k = k / norm(k)
+    cosβ = k[3]
+    sinβ = sqrt(1 - cosβ^2)
+    α = 0.0
+    if abs(cosβ) < 1
+        γ = atan(k[2], k[1])
+    else
+        γ = 0.0
+    end
+    return inv(D(cosβ, sinβ, α, γ)) * pol
+end
+export rotate_pol
+
+"""
+Methods for calculating forces.
+"""
+function force(p, ρ, τ)
+    F = SVector(0.0, 0.0, 0.0)
+
+    @unpack fields, Γ, d, d_nnz = p
+    r = p.r0 + p.v .* τ
+    update_fields!(fields, r, τ)
+    base_to_soa!(ρ, p.ρ_soa)
+    update_eiωt!(p.eiωt, p.ω, τ)
+    Heisenberg!(p.ρ_soa, p.eiωt)
+
+    for i ∈ eachindex(fields)
+
+        # ampl = SVector(0.0, 0.0, 0.0)
+        s = fields.s[i]
+        x = sqrt(s) / (2 * √2)
+        k = fields.k[i]
+
+        @inbounds for q ∈ 1:3
+            # With SI units, should be x = -h * Γ * sqrt(s) / (2 * √2 * p.λ)
+            ampl = k .* (x * im * fields.E[i][q])
+            # Note h * Γ / λ = 2π ħ * Γ / Λ = ħ * k * Γ, so this has units units of ħ k Γ
+            d_q = @view d[:,:,q]
+            d_nnz_q = d_nnz[q]
+            @inbounds for j ∈ d_nnz_q
+                F -= ampl * d_q[j] * conj(p.ρ_soa[j]) #+ conj(ampl * d_q[j] * ρ[j])
+            end
+        end
+    end
+    F += conj(F)
+    # real_F = real.(F)
+    # v = p.particle.v
+    # proj_F = sign(real_F) * abs(real.(F) ⋅ v / norm(v))
+    return real.(F)
+end
+export force
+
+function calculate_force_from_period(p, sol; force_idxs=nothing)
+    """
+    Integrates the force resulting from `sol` over a time period designated by `period`.
+    """
+    F = SVector(0.0, 0.0, 0.0)
+    if isnothing(force_idxs)
+        for i ∈ eachindex(sol.t)
+            F += force(p, sol.u[i], sol.t[i])
+        end
+        return F ./ length(sol.t)
+    else
+        for i ∈ eachindex(force_idxs)
+            F += force(p, sol.u[i], sol.t[force_idxs[i]])
+        end
+        return F ./ length(force_idxs)
+    end
+end
+export calculate_force_from_period
+
+function calculate_force_from_period_callable(p, sol; times=nothing)
+    """
+    Integrates the force resulting from `sol` over a time period designated by `period`.
+    """
+    F = 0.0
+    for t ∈ times
+        F += force(p, sol(t), t)
+    end
+    return F / length(times)
+end
+export calculate_force_from_period_callable
+
+function find_idx_for_time(time_to_find, times, backwards)
+    """
+    Search backwards in the array.
+    """
+    if backwards
+        times = reverse(times)
+    end
+    start_time = times[1]
+    found_idx = 0
+    for (i, time) in enumerate(times)
+        if abs(start_time - time) > time_to_find
+            found_idx = i
+            break
+        end
+    end
+    if backwards
+        found_idx = length(times) + 1 - found_idx
+    end
+    
+    return found_idx
+end
+export find_idx_for_time
+
+function force_scan(prob, scan_values::T, prob_func!::F1, param_func::F2, output_func::F3; n_threads=Threads.nthreads()) where {T,F1,F2,F3}
+
+    n_values = length(first(scan_values))
+    batch_size = fld(n_values, n_threads)
+    remainder = n_values - batch_size * n_threads
+    params = zeros(Float64, n_values)
+    forces = zeros(Float64, n_values)
+
+    prog_bar = Progress(n_values)
+
+    @sync for i ∈ 1:n_threads
+        _prob = deepcopy(prob)
+        Threads.@spawn begin
+            prob_func!(_prob.p, scan_values, i)
+            _batch_size = i <= remainder ? (batch_size + 1) : batch_size - 1
+            batch_start_idx = 1 + ((i <= remainder) ? i : remainder) + batch_size * (i-1)
+            for j ∈ batch_start_idx:(batch_start_idx + _batch_size)
+                prob_func!(_prob.p, scan_values, j)
+                sol = solve(_prob, alg=DP5(), abstol=1e-4)
+                params[j] = param_func(_prob.p, scan_values, j)
+                forces[j] = output_func(_prob.p, sol)
+                next!(prog_bar)
+            end
+        end
+    end
+    return params, forces
+end
+export force_scan
+
+function force_scan(params, scan_params, iterate_func; nthreads=Threads.nthreads())
+
+    # Make an iterator from `scan_params`
+    iterator_product = iterate_func(values(scan_params)...)
+    n_chunks = cld(length(iterator_product), nthreads)
+    iterator = Iterators.partition(iterator_product, n_chunks)
+    iterated_values = keys(scan_params)
+    n_distinct = sum(length.(iterator))
+
+    params_chunks = [deepcopy(params) for _ ∈ 1:nthreads]
+    
+    prog_bar = Progress(n_distinct)
+
+    tasks = Vector{Task}(undef, nthreads)
+    forces = SVector{3, Float64}[] #Vector{SVector{3, Float64}}(undef, n_distinct)
+
+    @sync for (i, scan_params_chunk) ∈ enumerate(iterator)
+
+        tasks[i] = Threads.@spawn begin
+            iterated_values = keys(scan_params)
+
+            params_chunk = params_chunks[i]
+            forces_chunk = SVector{3, Float64}[]
+
+            t_end = 250
+            tspan = (0.0, t_end)
+            times = range(t_end - params_chunk.period, t_end, step=params_chunk.period * 2e-3)
+
+            ρ0 = zeros(ComplexF64, (length(params_chunk.states), length(params_chunk.states)))
+            ρ0[1,1] = 1.0
+            prob = ODEProblem(ρ!, ρ0, tspan, params_chunk)#, callback=AutoAbstol(false, init_curmax=0.0))
+
+            for j ∈ eachindex(scan_params_chunk)
+                for (k, iterated_value) ∈ enumerate(iterated_values)
+                    setproperty!(params_chunk, iterated_value, scan_params_chunk[j][k])
+                end
+                round_params(params_chunk) # round params to `freq_res` accuracy just in case they were updated
+                sol = solve(prob, alg=DP5(), saveat=times, abstol=1e-5) #abstol=1e-6, reltol=1e-7, dense=false, saveat=times)
+                push!(forces_chunk, calculate_force_from_period(params_chunk, sol))
+                next!(prog_bar)
+            end
+            forces_chunk
+        end
+    end
+    forces = vcat(fetch.(tasks)...)
+    return (iterated_values, iterator_product), forces
+
+    ### Alternatively, use `@threads` to 
+    # Threads.@threads for scan_param ∈ collect(iterator_product)
+
+    #     params_chunk = deepcopy(params)
+    #     forces_chunk = SVector{3, Float64}[]
+
+    #     t_end = 500
+    #     tspan = (0.0, t_end)
+    #     times = range(t_end - params_chunk.period, t_end, 10000)
+
+    #     ρ0 = zeros(ComplexF64, (length(params_chunk.states), length(params_chunk.states)))
+    #     ρ0[1,1] = 1.0
+    #     prob = ODEProblem(ρ!, ρ0, tspan, params_chunk)#, callback=AutoAbstol(false, init_curmax=0.0))
+
+    #     # params_chunk.B = scan_param[1]
+
+    #     for (k, iterated_value) ∈ enumerate(iterated_values)
+    #         setproperty!(params_chunk, iterated_value, scan_param[k])
+    #     end
+    #     sol = solve(prob, alg=DP5(), saveat=times) #abstol=1e-6, reltol=1e-7, dense=false, saveat=times)
+    #     push!(forces_chunk, calculate_force_from_period(params_chunk, sol))
+    #     # next!(prog_bar)
+    #     # forces_chunk
+    #     # forces = [forces; forces_chunk]
+    # end
+end
+export force_scan
+
+"""
+    param_scan(evaluate_func, params, scan_params; nthreads)
+
+    Evaluates an `ODEProblem` by looping over both the set of params [`outer_scan_params`; `inner_scan_params`].
+
+    update_func(params, outer_scan_param) --> updates the parameters `p` of the passed `prob`
+    evaluate_func() --> 
+"""
+function param_scan(update_func::F1, evaluate_func::F2, prob::ODEProblem, outer_scan_params, inner_scan_params; nthreads=Threads.nthreads()) where {F1,F2}
+
+    # Make an iterator from `inner_scan_params`, break them into chunks to prepare for threading
+    iterator_product = Iterators.product(values(inner_scan_params)...)
+    n_chunks = cld(length(iterator_product), nthreads)
+    iterator = Iterators.partition(iterator_product, n_chunks)
+    iterated_values = keys(inner_scan_params)
+    n_distinct = sum(length.(iterator))
+
+    params_chunks = [deepcopy(params) for _ ∈ 1:nthreads]
+    
+    prog_bar = Progress(n_distinct)
+
+    tasks = Vector{Task}(undef, nthreads)
+    return_values = []
+
+    for outer_scan_param ∈ outer_scan_params
+        update_func(prob, outer_scan_param)
+
+        @sync for (i, scan_params_chunk) ∈ enumerate(iterator)
+
+            tasks[i] = Threads.@spawn begin
+                iterated_values = keys(scan_params)
+
+                params_chunk = params_chunks[i]
+                forces_chunk = SVector{3, Float64}[]
+
+                t_end = 300
+                tspan = (0.0, t_end)
+                times = range(t_end - params_chunk.period, t_end, 1000)
+
+                ρ0 = zeros(ComplexF64, (length(params_chunk.states), length(params_chunk.states)))
+                ρ0[1,1] = 1.0
+                prob = ODEProblem(ρ!, ρ0, tspan, params_chunk)
+
+                for j ∈ eachindex(scan_params_chunk)
+                    for (k, iterated_value) ∈ enumerate(iterated_values)
+                        setproperty!(params_chunk, iterated_value, scan_params_chunk[j][k])
+                    end
+                    round_params(params_chunk) # round params to `freq_res` accuracy just in case they were updated
+                    sol = solve(prob, alg=DP5(), abstol=1e-5)
+                    push!(forces_chunk, evaluate_func(params_chunk, sol))
+                    next!(prog_bar)
+                end
+                forces_chunk
+            end
+        end
+    end
+    forces = vcat(fetch.(tasks)...)
+    return (iterated_values, iterator_product), forces
+
+    ### Alternatively, use `@threads` to 
+    # Threads.@threads for scan_param ∈ collect(iterator_product)
+
+    #     params_chunk = deepcopy(params)
+    #     forces_chunk = SVector{3, Float64}[]
+
+    #     t_end = 500
+    #     tspan = (0.0, t_end)
+    #     times = range(t_end - params_chunk.period, t_end, 10000)
+
+    #     ρ0 = zeros(ComplexF64, (length(params_chunk.states), length(params_chunk.states)))
+    #     ρ0[1,1] = 1.0
+    #     prob = ODEProblem(ρ!, ρ0, tspan, params_chunk)#, callback=AutoAbstol(false, init_curmax=0.0))
+
+    #     # params_chunk.B = scan_param[1]
+
+    #     for (k, iterated_value) ∈ enumerate(iterated_values)
+    #         setproperty!(params_chunk, iterated_value, scan_param[k])
+    #     end
+    #     sol = solve(prob, alg=DP5(), saveat=times) #abstol=1e-6, reltol=1e-7, dense=false, saveat=times)
+    #     push!(forces_chunk, calculate_force_from_period(params_chunk, sol))
+    #     # next!(prog_bar)
+    #     # forces_chunk
+    #     # forces = [forces; forces_chunk]
+    # end
+end
+export force_scan
+
+# Multiplication using `@turbo` from LoopVectorization
+function mul_turbo!(C, A, B)
+    @turbo for m ∈ 1:size(A,1), n ∈ 1:size(B,2)
+        Cmn_re = 0.0
+        Cmn_im = 0.0
+        for k ∈ 1:size(A,2)
+            A_mk_re = A.re[m,k]
+            A_mk_im = A.im[m,k]
+            B_kn_re = B.re[k,n]
+            B_kn_im = B.im[k,n]
+            Cmn_re += A_mk_re * B_kn_re - A_mk_im * B_kn_im
+            Cmn_im += A_mk_re * B_kn_im + A_mk_im * B_kn_re
+        end
+        C.re[m,n] = Cmn_re
+        C.im[m,n] = Cmn_im
     end
 end
 

@@ -51,15 +51,20 @@ ẑ = @SVector [0,0,1]
 #     return H
 # end
 
-@with_kw struct Laser1
-    k::SVector{3, Float64}      # k-vector
-    e::SVector{3, ComplexF64}   # polarization
-    ω::Float64                  # frequency
-    s::Float64                  # saturation parameter
-    fre::SVector{3, Float64}
-    fim::SVector{3, Float64}
-    Hq::Vector{Array{Float64, 2}}
+@with_kw struct Laser
+    k::SVector{3, Float64}         # k-vector
+    ϵ_re::SVector{3, Float64}      # real part of polarization
+    ϵ_im::SVector{3, Float64}      # imaginary part of polarization
+    ω::Float64                     # frequency
+    s::Float64                     # saturation parameter
+    kr::Float64                    # value of k ⋅ r, defaults to 0
+    f_re_q::SVector{3, Float64}    # real part of f = exp(i(kr - ωt))
+    f_im_q::SVector{3, Float64}    # imag part of f = exp(i(kr - ωt))
+    re::Float64
+    im::Float64
+    Laser(k, ϵ, ω, s) = new(k, real.(ϵ), imag.(ϵ), ω, s, 0.0, SVector(0, 0, 0), SVector(0, 0, 0), 1.0, 0.0)
 end
+export Laser
 
 @with_kw struct Field
     k::SVector{3, Float64}      # k-vector
@@ -131,11 +136,20 @@ struct Jump
     r ::Float64
 end
 
-roundmult(val, prec) = (inv_prec = 1 / prec; round(val * inv_prec) / inv_prec)
-function round_freq(ω, Γ)
-    ω_min = Γ * 1e-2
-    return roundmult(ω, ω_min)
+# Round `val` to the nearest multiple of `prec`
+round_to_mult(val, prec) = (inv_prec = 1 / prec; round.(val * inv_prec) / inv_prec)
+
+function round_freq(ω, Γ, freq_res)
+    ω_min = freq_res * Γ
+    return round_to_mult(ω, ω_min)
 end
+export round_freq
+
+function round_vel(v, λ, Γ, freq_res)
+    v_min = freq_res * Γ * λ / 2π
+    return round_to_mult(v, v_min)
+end
+export round_vel
 
 function schrödinger(states, lasers, d, f, p)
 
@@ -176,18 +190,49 @@ function schrödinger(states, lasers, d, f, p)
 end
 export schrödinger
 
-function obe(states, lasers, d, ρ)
+mutable struct Particle
+    r0::SVector{3, Float64}
+    r::SVector{3, Float64}
+    v::SVector{3, Float64}
+end
+
+function round_freqs(states, lasers, Γ, freq_res)
+    """
+    Rounds frequencies of state energies and fields by a common denominator.
+    
+    freq_res::Float: all frequencies are rounded by this value (in units of Γ)
+    """
+
+    for i in eachindex(lasers)
+        lasers.ω[i] = round_freq(lasers.ω[i], Γ, freq_res)
+        lasers.ω[i] /= Γ
+    end
+    for i in eachindex(states)
+        states.E[i] = round_freq(states.E[i], Γ, freq_res)
+        states.E[i] /= Γ
+    end
+    
+    return (states, lasers)
+end
+
+"""
+    freq_res::Float: all frequencies are rounded by this value (in units of Γ)
+"""
+function obe(states, lasers, d, ρ, λ, Γ; freq_res=1e-2)
 
     n_states = length(states)
     n_lasers = length(lasers)
 
+    states = StructArray(states)
     lasers = StructArray(lasers)
 
-    r = @SVector [0., 0., 0.]
-    v = @SVector [0., 0., 0.]
-
+    states, lasers = round_freqs(states, lasers, Γ, freq_res)
+        
     type_complex = ComplexF64
-    type_real = Float64
+    type_real = Float64    
+    
+    # r = @SVector [0., 0., 0.]
+    # v = @SVector [0., 0., 0.]
 
     H       = StructArray( zeros(type_complex, n_states, n_states) )
     H_adj   = StructArray( zeros(type_complex, n_states, n_states) )
