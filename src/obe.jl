@@ -1,4 +1,3 @@
-import StaticArrays: MVector
 import StructArrays: StructArray, StructVector
 import LoopVectorization: @turbo
 

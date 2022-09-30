@@ -1,6 +1,6 @@
 module OpticalBlochEquations
 
-import StaticArrays: SVector
+import StaticArrays: SVector, MVector
 import Parameters: @with_kw
 
 include("laser.jl")
