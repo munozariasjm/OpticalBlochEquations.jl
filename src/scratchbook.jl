@@ -1,3 +1,98 @@
+evaluate_field(field::Laser, k, r, ω, t) = (field.ϵ + im * field.ϵ_im) * cis(k * r - ω * t)
+export evaluate_field
+
+function update_fields!(fields::StructVector{Field{T}}, r, t) where T
+    """
+    Fields must be specified as one of the following types:
+    """
+    for i in eachindex(fields)
+        fields.E[i] .= fields.f[i](fields.ω[i], r, t)
+    end
+    return nothing
+end
+export update_fields!
+
+# function ρ_and_force!(du, u, p, τ)
+
+#     p.particle.r = p.particle.v .* τ
+
+#     mat_to_vec_minus1!(u, p.ρ)
+#     base_to_soa!(p.ρ, p.ρ_soa)
+#     #p.ρ_soa .= ρ
+
+#     # Update the Hamiltonian according to the new time τ
+#     update_H!(τ, p.particle.r, p.lasers, p.H, p.conj_mat, p.d, p.d_nnz)
+
+#     # Apply a transformation to go to the Heisenberg picture
+#     update_eiωt!(p.eiωt, p.ω, τ)
+#     Heisenberg!(p.ρ_soa, p.eiωt)
+
+#     # Compute coherent evolution terms
+#     # im_commutator!(p.dρ_soa, p.H, p.ρ_soa, p.A12, p.B12, p.T1, p.T2, p.HJ, p.tmp1, p.tmp2)
+#     im_commutator!(p.dρ_soa, p.H, p.ρ_soa, p.tmp1, p.tmp2, p.HJ)
+
+#     # Add the terms ∑ᵢ Jᵢ ρ Jᵢ†
+#     # We assume jumps take the form Jᵢ = sqrt(Γ)|g⟩⟨e| such that JᵢρJᵢ† = Γ^2|g⟩⟨g|ρₑₑ
+#     @inbounds for i in eachindex(p.Js)
+#         J = p.Js[i]
+#         p.dρ_soa.re[J.s′, J.s′] += J.r^2 * p.ρ_soa.re[J.s, J.s]
+#     end
+
+#     # The left-hand side also needs to be transformed into the Heisenberg picture
+#     # To do this, we require the transpose of the `ω` matrix
+#     # Heisenberg!(p.dρ_soa, p.ω_trans, τ)
+#     Heisenberg!(p.dρ_soa, p.eiωt, -1)
+#     soa_to_base!(p.dρ, p.dρ_soa)
+
+#     mat_to_vec!(p.dρ, du)
+#     du[end] = derivative_force(p.ρ, p, τ)
+#     # u[end] = force(p.ρ, p, τ)
+
+#     return nothing
+# end
+# export ρ_and_force!
+
+function derivative_force(p, ρ, τ)
+
+    @unpack ρ_soa, lasers, Γ, d, d_nnz = p
+
+    r = p.particle.v .* τ
+    update_lasers!(r, lasers, τ)
+
+    F = SVector(0, 0, 0)
+
+    for q in 1:3
+
+        ampl = SVector(0, 0, 0)
+        @inbounds for i in 1:length(lasers)
+            s = lasers.s[i]
+            k = lasers.k[i]
+            ω = lasers.ω[i]
+            x = h * Γ * s / (4π * √2)
+            ampl += k * x * (im * lasers.f_re_q[i][q] - lasers.f_im_q[i][q])
+        end
+
+        d_q = @view d[:,:,q]
+        d_nnz_q = d_nnz[q]
+        @inbounds for i ∈ d_nnz_q
+            F += ampl * d_q[i] * ρ_soa[i] + conj(ampl * d_q[i] * ρ_soa[i])
+        end
+    end
+
+    return real(F[1])
+end
+export derivative_force
+
+@with_kw struct Field{T<:Function}
+    f::T                                                # function for the field
+    ω::Float64                                          # angular frequency of field
+    s::Float64                                          # saturation parameter
+    ϵ::SVector{3, Float64}                              # polarization vector
+    k::SVector{3, Float64} = zeros(Float64, 3)          # k-vector
+    E::MVector{3, ComplexF64} = zeros(ComplexF64, 3)    # the actual field components
+end
+export Field
+
 function calculate_force_from_period_callable(p, sol; times=nothing)
     """
     Integrates the force resulting from `sol` over a time period designated by `period`.

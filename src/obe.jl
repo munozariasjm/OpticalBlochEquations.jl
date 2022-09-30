@@ -2,97 +2,12 @@ import StaticArrays: SVector, MVector
 import StructArrays: StructArray
 import Parameters: @with_kw
 import LoopVectorization: @turbo
-import DifferentialEquations: ODEProblem, solve
 
-const cart2sph = @SMatrix [
-    +1/√2 +im/√2 0;
-    0 0 1
-    -1/√2 +im/√2 0;
-]
-export cart2sph
+export schrödinger, obe
 
-const sph2cart = inv(cart2sph)
-export sph2cart
-
-const x̂ = @SVector [1,0,0]
-const ŷ = @SVector [0,1,0]
-const ẑ = @SVector [0,0,1]
-export x̂, ŷ, ẑ
-export x̂, ŷ, ẑ
-
-const ϵ₊ = SVector{3, ComplexF64}(-1/√2, -im/√2, 0) # in Cartesian representation
-const ϵ₋ = SVector{3, ComplexF64}(+1/√2, -im/√2, 0)
-const ϵ₀ = SVector{3, ComplexF64}(0.0, 0.0, 1.0)
-const ϵ = [ϵ₋, ϵ₀, ϵ₊]
-export ϵ₊, ϵ₋, ϵ₀
-export ϵ
-
-const σ⁻ = @SVector [1.0, 0.0, 0.0]
-const σ⁺ = @SVector [0.0, 0.0, 1.0]
-export σ⁻, σ⁺
-
-const qs = @SVector [-1, 0, 1]
-export qs
-
-@with_kw struct Laser
-    k::SVector{3, Float64}         # k-vector
-    ϵ_re::SVector{3, Float64}      # real part of polarization
-    ϵ_im::SVector{3, Float64}      # imaginary part of polarization
-    ϵ_cart::SVector{3, ComplexF64} # polarization in cartesian coordinates 
-    ω::Float64                     # frequency
-    s::Float64                     # saturation parameter
-    kr::Float64                    # value of k ⋅ r, defaults to 0
-    E::MVector{3, ComplexF64}      # f = exp(i(kr - ωt))
-    re::Float64
-    im::Float64
-    Laser(k, ϵ, ω, s) = new(k, real.(ϵ), imag.(ϵ), sph2cart * ϵ, ω, s, 0.0, MVector(0.0, 0.0, 0.0), 1.0, 0.0)
-end
-export Laser
-
-evaluate_field(field::Laser, k, r, ω, t) = (field.ϵ + im * field.ϵ_im) * cis(k * r - ω * t)
-export evaluate_field
-
-@with_kw struct Field{T<:Function}
-    f::T                                                # function for the field
-    ω::Float64                                          # angular frequency of field
-    s::Float64                                          # saturation parameter
-    ϵ::SVector{3, Float64}                              # polarization vector
-    k::SVector{3, Float64} = zeros(Float64, 3)          # k-vector
-    E::MVector{3, ComplexF64} = zeros(ComplexF64, 3)    # the actual field components
-end
-export Field
-
-# @with_kw struct Field_Array1{T<:Function}
-#     f::T                                            # function for the field
-#     E::Vector{Float64} = zeros(ComplexF64, 3)   # the actual field components
-# end
-# export Field_Array1
-
-@with_kw struct State
-    F::HalfInt                          # angular quantum number
-    m::HalfInt                          # projection of angular quantum number
-    E::Float64                          # frequency
-    μ::Float64                          # magnetic moment
-    Γ::Union{Nothing, Float64}=nothing  # linewidth (defaults to `nothing` for ground states)
-end
-# export State
-
-# function define_field(k, e, ω, s)
-#     fre = zeros(Float64, 3)
-#     fim = zeros(Float64, 3)
-#     for q in eachindex(qs)
-#         dotted = e ⋅ ϵ[q]
-#         fre[q] = real(dotted)
-#         fim[q] = imag(dotted)
-#     end
-#     Hqm = zeros(Float64, (3, 3))
-#     Hq0 = zeros(Float64, (3, 3))
-#     Hqp = zeros(Float64, (3, 3))
-#     return Field(k, e, ω, s, fre, fim, Hqm, Hq0, Hqp)
-# end
-# export define_field
-
-# Structure for quantum jumps from state `s` to state `s′` with rate `r`
+"""
+Structure for quantum jumps from state `s` to state `s′` with rate `r`.
+"""
 struct Jump
     s ::Int64
     s′::Int64
@@ -100,6 +15,9 @@ struct Jump
     r ::ComplexF64
 end
 
+"""
+Instantiate parameters to solve Schrödinger's equation.
+"""
 function schrödinger(particle, states, H₀, fields, d, d_mag, ψ, should_round_freqs; λ=1.0, freq_res=1e-2)
 
     period = 2π / freq_res
@@ -158,14 +76,12 @@ function schrödinger(particle, states, H₀, fields, d, d_mag, ψ, should_roun
 
     return (dψ, ψ, p)
 end
-export schrödinger
 
 @with_kw mutable struct Particle
     r0::MVector{3, Float64} = MVector(0.0, 0.0, 0.0)
     r::MVector{3, Float64}  = MVector(0.0, 0.0, 0.0)
     v::MVector{3, Float64}  = MVector(0.0, 0.0, 0.0)
 end
-export Particle
 
 # Round `val` to the nearest multiple of `prec`
 round_to_mult(val, prec) = (inv_prec = 1 / prec; round.(val * inv_prec) / inv_prec)
@@ -284,37 +200,6 @@ function obe(particle, states, fields, d, d_m, should_round_freqs, include_jumps
 end
 export obe
 
-function derivative_force(p, ρ, τ)
-
-    @unpack ρ_soa, lasers, Γ, d, d_nnz = p
-
-    r = p.particle.v .* τ
-    update_lasers!(r, lasers, τ)
-
-    F = SVector(0, 0, 0)
-
-    for q in 1:3
-
-        ampl = SVector(0, 0, 0)
-        @inbounds for i in 1:length(lasers)
-            s = lasers.s[i]
-            k = lasers.k[i]
-            ω = lasers.ω[i]
-            x = h * Γ * s / (4π * √2)
-            ampl += k * x * (im * lasers.f_re_q[i][q] - lasers.f_im_q[i][q])
-        end
-
-        d_q = @view d[:,:,q]
-        d_nnz_q = d_nnz[q]
-        @inbounds for i ∈ d_nnz_q
-            F += ampl * d_q[i] * ρ_soa[i] + conj(ampl * d_q[i] * ρ_soa[i])
-        end
-    end
-
-    return real(F[1])
-end
-export derivative_force
-
 function update_fields!(fields::StructVector{Laser}, r, t)
     # Fields are represented as ϵ_q * exp(i(kr - ωt)), where ϵ_q is in spherical coordinates
     for i ∈ eachindex(fields)
@@ -332,30 +217,8 @@ function update_fields!(fields::StructVector{Laser}, r, t)
     return nothing
 end
 
-# function update_fields!(fields::StructVector{Laser1}, r, t)
-#     for i in 1:length(fields)
-#         kr = fields.k[i] ⋅ r
-#         ω = fields.ω[i]
-#         fields.E[i] .= (fields.ϵ_re[i] + im * fields.ϵ_im[i]) * cis(kr) #* cos(ω * t)
-#     end
-#     return nothing
-# end
-
-function update_fields!(fields::StructVector{Field{T}}, r, t) where T
-    """
-    Fields must be specified as one of the following types:
-    """
-    for i in eachindex(fields)
-        fields.E[i] .= fields.f[i](fields.ω[i], r, t)
-    end
-    return nothing
-end
-export update_fields!
-
 function update_H!(τ, r, H₀, fields, H, d, d_nnz, B, d_m, Js, ω, Γ)
-    """
-    Anything uncommented in-line is from previous version.
-    """
+
     update_fields!(fields, r, τ)
 
     @turbo for i in eachindex(H)
@@ -486,15 +349,6 @@ function im_commutator!(C, A, B, tmp)
     C_add_A!(C, tmp, -1)
     mul_by_im!(C)
 
-    # C .= -im * (A * B - B * A')
-
-    # Add diagonal (jump) elements (ρ * H_jumps), add adjoint (H_jumps * ρ) as well
-    # mul_diagonal!(tmp1, B, A_diag)
-    # adjoint!(tmp2, tmp1)
-
-    # Add everything together
-    # C_add_AplusB!(C, tmp1, tmp2, 1, 1)
-
 end
 export im_commutator!
 
@@ -518,7 +372,6 @@ function ψ!(dψ, ψ, p, τ)
 end
 export ψ!
 
-# Note that we specialize to the type of the parameter argument, `p`
 function ρ!(dρ, ρ, p, τ)
 
     p.r .= p.r0 + p.v .* τ
@@ -574,46 +427,6 @@ function mat_to_vec_minus1!(ρ, ρ_vec)
     return nothing
 end
 export mat_to_vec_minus1!
-
-# function ρ_and_force!(du, u, p, τ)
-
-#     p.particle.r = p.particle.v .* τ
-
-#     mat_to_vec_minus1!(u, p.ρ)
-#     base_to_soa!(p.ρ, p.ρ_soa)
-#     #p.ρ_soa .= ρ
-
-#     # Update the Hamiltonian according to the new time τ
-#     update_H!(τ, p.particle.r, p.lasers, p.H, p.conj_mat, p.d, p.d_nnz)
-
-#     # Apply a transformation to go to the Heisenberg picture
-#     update_eiωt!(p.eiωt, p.ω, τ)
-#     Heisenberg!(p.ρ_soa, p.eiωt)
-
-#     # Compute coherent evolution terms
-#     # im_commutator!(p.dρ_soa, p.H, p.ρ_soa, p.A12, p.B12, p.T1, p.T2, p.HJ, p.tmp1, p.tmp2)
-#     im_commutator!(p.dρ_soa, p.H, p.ρ_soa, p.tmp1, p.tmp2, p.HJ)
-
-#     # Add the terms ∑ᵢ Jᵢ ρ Jᵢ†
-#     # We assume jumps take the form Jᵢ = sqrt(Γ)|g⟩⟨e| such that JᵢρJᵢ† = Γ^2|g⟩⟨g|ρₑₑ
-#     @inbounds for i in eachindex(p.Js)
-#         J = p.Js[i]
-#         p.dρ_soa.re[J.s′, J.s′] += J.r^2 * p.ρ_soa.re[J.s, J.s]
-#     end
-
-#     # The left-hand side also needs to be transformed into the Heisenberg picture
-#     # To do this, we require the transpose of the `ω` matrix
-#     # Heisenberg!(p.dρ_soa, p.ω_trans, τ)
-#     Heisenberg!(p.dρ_soa, p.eiωt, -1)
-#     soa_to_base!(p.dρ, p.dρ_soa)
-
-#     mat_to_vec!(p.dρ, du)
-#     du[end] = derivative_force(p.ρ, p, τ)
-#     # u[end] = force(p.ρ, p, τ)
-
-#     return nothing
-# end
-# export ρ_and_force!
 
 function C_copy_AplusB!(C::Array{<:Real}, A::Array{<:Real}, B::Array{<:Real}, α=1, β=1)
     @turbo for i in eachindex(A, B, C)
@@ -700,7 +513,7 @@ end
 # ]
 function D(cosβ, sinβ, α, γ)
     γ = -γ
-    # Sign convention is different than the matrix above 
+    # Sign convention is different from the matrix above 
     return [
         (1/2)*(1 + cosβ)*exp(-im*(α + γ)) -(1/√2)*sinβ*exp(-im*α) (1/2)*(1 - cosβ)*exp(-im*(α - γ));
         (1/√2)*sinβ*exp(-im*γ) cosβ -(1/√2)*sinβ*exp(im*γ);
