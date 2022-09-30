@@ -551,5 +551,3 @@ function mul_turbo!(C, A, B)
         C.im[m,n] = Cmn_im
     end
 end
-
-end
