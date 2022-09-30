@@ -1,25 +1,8 @@
-module OpticalBlochEquations
-
-using StaticArrays
-using StructArrays
-using Parameters
-using HalfIntegers
-using Unitful
-using LinearAlgebra
-using WignerSymbols
-using LoopVectorization
-using PhysicalConstants.CODATA2018
-
-const h = PlanckConstant.val
-const ħ = h / 2π
-const c = SpeedOfLightInVacuum.val
-export h, ħ, c
-
-macro with_unit(arg1, arg2)
-    arg2 = @eval @u_str $arg2
-    return convert(Float64, upreferred(eval(arg1) .* arg2).val)
-end
-export @with_unit
+import StaticArrays: SVector, MVector
+import StructArrays: StructArray
+import Parameters: @with_kw
+import LoopVectorization: @turbo
+import DifferentialEquations: ODEProblem, solve
 
 const cart2sph = @SMatrix [
     +1/√2 +im/√2 0;
@@ -31,44 +14,38 @@ export cart2sph
 const sph2cart = inv(cart2sph)
 export sph2cart
 
-const ϵ₊ = @SVector [-1/√2, -im/√2, 0]
-const ϵ₋ = @SVector [ 1/√2, -im/√2, 0]
-const ϵ₀ = @SVector [    0,      0, 1]
+const x̂ = @SVector [1,0,0]
+const ŷ = @SVector [0,1,0]
+const ẑ = @SVector [0,0,1]
+export x̂, ŷ, ẑ
+export x̂, ŷ, ẑ
+
+const ϵ₊ = SVector{3, ComplexF64}(-1/√2, -im/√2, 0) # in Cartesian representation
+const ϵ₋ = SVector{3, ComplexF64}(+1/√2, -im/√2, 0)
+const ϵ₀ = SVector{3, ComplexF64}(0.0, 0.0, 1.0)
 const ϵ = [ϵ₋, ϵ₀, ϵ₊]
 export ϵ₊, ϵ₋, ϵ₀
 export ϵ
 
+const σ⁻ = @SVector [1.0, 0.0, 0.0]
+const σ⁺ = @SVector [0.0, 0.0, 1.0]
+export σ⁻, σ⁺
+
 const qs = @SVector [-1, 0, 1]
 export qs
-
-x̂ = @SVector [1,0,0]
-ŷ = @SVector [0,1,0]
-ẑ = @SVector [0,0,1]
-#export x̂, ŷ, ẑ
-
-# @with_kw struct Hamiltonian12
-#     states::Vector{State}
-#     H::StructArray{<:Complex} = StructArray(zeros(ComplexF64, length(states), length(states)))
-#     Hsubs::Vector{StructArray{<:Complex}} = []
-# end
-# export Hamiltonian12
-
-# function make_hamiltonian(states::Vector(State), lasers::Vector(Laser))
-#     H = Hamiltonian(; states)
-#     return H
-# end
 
 @with_kw struct Laser
     k::SVector{3, Float64}         # k-vector
     ϵ_re::SVector{3, Float64}      # real part of polarization
     ϵ_im::SVector{3, Float64}      # imaginary part of polarization
+    ϵ_cart::SVector{3, ComplexF64} # polarization in cartesian coordinates 
     ω::Float64                     # frequency
     s::Float64                     # saturation parameter
     kr::Float64                    # value of k ⋅ r, defaults to 0
     E::MVector{3, ComplexF64}      # f = exp(i(kr - ωt))
     re::Float64
     im::Float64
-    Laser(k, ϵ, ω, s) = new(k, real.(ϵ), imag.(ϵ), ω, s, 0.0, MVector(0.0, 0, 0), 1.0, 0.0)
+    Laser(k, ϵ, ω, s) = new(k, real.(ϵ), imag.(ϵ), sph2cart * ϵ, ω, s, 0.0, MVector(0.0, 0.0, 0.0), 1.0, 0.0)
 end
 export Laser
 
@@ -115,113 +92,17 @@ end
 # end
 # export define_field
 
-@with_kw struct Manifold
-    F::HalfInt                          # angular quantum number
-    states::Vector{State}
-end
-manifold(; F, E, μ, Γ=nothing) = Manifold(F, [State(F=F, m=m, E=E, μ=μ, Γ=Γ) for m in -F:F])
-export manifold
-
 # Structure for quantum jumps from state `s` to state `s′` with rate `r`
 struct Jump
     s ::Int64
     s′::Int64
-    r ::Float64
+    q::Int64
+    r ::ComplexF64
 end
 
-# Round `val` to the nearest multiple of `prec`
-round_to_mult(val, prec) = (inv_prec = 1 / prec; round.(val * inv_prec) / inv_prec)
+function schrödinger(particle, states, H₀, fields, d, d_mag, ψ, should_round_freqs; λ=1.0, freq_res=1e-2)
 
-function round_freq(ω, Γ, freq_res)
-    ω_min = freq_res * Γ
-    return round_to_mult(ω, ω_min)
-end
-export round_freq
-
-function round_vel(v, λ, Γ, freq_res)
-    v_min = freq_res * Γ * λ / 2π
-    return round_to_mult(v, v_min)
-end
-export round_vel
-
-function schrödinger(states, fields, d, Γ, freq_res)
-
-    n_states = length(states)
-    n_lasers = length(fields)
-
-    states = StructArray(states)
-    fields = StructArray(fields)
-    states, fields = round_freqs(states, fields, Γ, freq_res)
-    
-    r = @SVector [0.,0.,0.]
-    v = @SVector [0.,0.,0.]
-
-    type_complex = ComplexF64
-    type_real    = Float64
-
-    H       = StructArray( zeros(type_real, n_states, n_states) )
-    H_adj   = StructArray( zeros(type_real, n_states, n_states) )
-    # HJ      = zeros(type_real, n_states, n_states)
-    HJ      = zeros(Float64, n_states)
-    Hₒ      = [zeros(type_real, n_states, n_states) for l in fields, q in qs]
-    
-    # Define the optical Hamiltonian; it has dimensions (k, q)
-    for i ∈ 1:n_states, j ∈ i:n_states
-        for k in eachindex(lasers)
-            lasers[k].Hqm[i,j] += d[1,i,j] * (lasers[k].e ⋅ ϵ[1])
-            lasers[k].Hq0[i,j] += d[2,i,j] * (lasers[k].e ⋅ ϵ[2])
-            lasers[k].Hqp[i,j] += d[3,i,j] * (lasers[k].e ⋅ ϵ[3])
-            lasers[k].Hqm[j,i] += d[1,i,j] * (lasers[k].e ⋅ ϵ[1])
-            lasers[k].Hq0[j,i] += d[2,i,j] * (lasers[k].e ⋅ ϵ[2])
-            lasers[k].Hqp[j,i] += d[3,i,j] * (lasers[k].e ⋅ ϵ[3])
-        end
-    end
-
-    ψ = zeros(type_complex, n_states)
-    dψ = deepcopy(ψ)
-    ψ[1] = 1
-    ψ_soa = StructArray(ψ)
-    dψ_soa = StructArray(dψ)
-
-    p = (H = H, ψ_soa = ψ_soa, dψ_soa = dψ_soa, states = states, lasers = lasers, r = r, v = v, f = f, p = p)
-
-    return (dψ, ψ, p)
-end
-export schrödinger
-
-mutable struct Particle
-    r0::SVector{3, Float64}
-    r::SVector{3, Float64}
-    v::SVector{3, Float64}
-end
-
-function round_freqs(states, fields, Γ, freq_res)
-    """
-    Rounds frequencies of state energies and fields by a common denominator.
-    
-    freq_res::Float: all frequencies are rounded by this value (in units of Γ)
-    """
-
-    for i in eachindex(fields)
-        fields.ω[i] = round_freq(fields.ω[i], Γ, freq_res)
-        fields.ω[i] /= Γ
-    end
-    for i in eachindex(states)
-        states.E[i] = round_freq(states.E[i], Γ, freq_res)
-        states.E[i] /= Γ
-    end
-    
-    return (states, fields)
-end
-
-function obe(states, fields, d, d_mag, ρ, round_freqs, include_jumps; λ=nothing, Γ=nothing, freq_res=1e-2)
-
-    # Γs = [s.Γ for s in states]
-    # Γ = maximum(filter(x -> x != nothing, Γs))
-
-    # λs = [c / s.E for s in states]
-    # λs_nonzero = [c / s.E for s in states] .!= Inf
-    # λ = 2π * minimum(λs[λs_nonzero])
+    period = 2π / freq_res
 
     n_states = length(states)
     n_fields = length(fields)
@@ -230,137 +111,178 @@ function obe(states, fields, d, d_mag, ρ, round_freqs, include_jumps; λ=nothin
     if n_fields > 0
         fields = StructArray(fields)
     end
-    
-    if round_freqs
-        states, fields = round_freqs(states, fields, Γ, freq_res)
-    end
-    
+
+    k = 2π / λ
+    particle.r0 *= 2π
+    # particle.v /= (Γ / k) # velocity is in units of Γ/k
     # Convert to angular frequencies
     for i ∈ eachindex(states)
         states.E[i] *= 2π
     end
 
+    if should_round_freqs
+        round_freqs!(states, fields, freq_res)
+        particle.v = round_vel(particle.v, freq_res)
+    end
+
+    r0 = particle.r0
+    r = particle.r
+    v = particle.v
+
     type_complex = ComplexF64
-    type_real = Float64
 
-    H       = StructArray( zeros(type_complex, n_states, n_states) )
-    H_adj   = StructArray( zeros(type_complex, n_states, n_states) )
-    # HJ      = zeros(type_real, n_states, n_states)
-    HJ      = zeros(Float64, n_states)
-    Hₒ      = [zeros(type_real, n_states, n_states) for _ in fields, _ in qs]
+    B = MVector(0.0, 0.0, 0.0)
 
-    # Define the optical Hamiltonian; it has dimensions (k, q)
-    # for k in eachindex(lasers)
-    #     for s in eachindex(states), s′ in s:n_states
-    #         q = Int64(states[s′].m - states[s].m)
-    #         if abs(q) <= 1
-    #             laser_ϵ = lasers[k].ϵ_re + im * lasers[k].ϵ_im
-    #             print(laser_ϵ)
-    #             print(ϵ[q+2])
-    #             if !iszero(laser_ϵ ⋅ ϵ[q+2])
-    #                 # Hₒ[k, q+2][s, s′] = d[s, s′, q+2]
-    #                 # Hₒ[k, q+2][s′, s] = d[s, s′, q+2]
-    #                 lasers[k].Hq[q+2][s, s′] = d[s, s′, q+2]
-    #                 lasers[k].Hq[q+2][s′, s] = d[s, s′, q+2]
-    #             end
-    #         end
-    #     end
-    # end
+    H = StructArray( zeros(type_complex, n_states, n_states) )
 
-    # Define the magnetic Hamiltonian; it has dimensions (q)
-    # μ = (s, s′, q) -> - s.g * (-1)^(s.F - s′.m) * sqrt(s.F * (s.F + 1) * (2s.F + 1))
-    #     * wigner3j(s.F, 1, s′.F, -s.m, q, s′.m)
-    # H_magnetic = zeros(Float64, n_states, n_states)
-    # for s in eachindex(states), s′ in eachindex(states), q in qs
-    #     if states[s].F == states[s].F # States only mix if they belong to the same F state
-    #         H_magnetic[q+2][s, s′] = im * (-1)^q * μ(states[s], states[s′], -q)
-    #     end
-    # end
+    ω = [s.E for s in states]
+    eiωt = StructArray(zeros(type_complex, n_states))
+
+    # Compute cartesian indices to indicate nonzero transition dipole moments in `d`
+    # Indices below the diagonal of the Hamiltonian are removed, since those are defined via taking the conjugate
+    d_nnz_m = [cart_idx for cart_idx ∈ findall(d[:,:,1] .!= 0) if cart_idx[2] >= cart_idx[1]]
+    d_nnz_0 = [cart_idx for cart_idx ∈ findall(d[:,:,2] .!= 0) if cart_idx[2] >= cart_idx[1]]
+    d_nnz_p = [cart_idx for cart_idx ∈ findall(d[:,:,3] .!= 0) if cart_idx[2] >= cart_idx[1]]
+    d_nnz = [d_nnz_m, d_nnz_0, d_nnz_p]
+
+    dψ = deepcopy(ψ)
+    ψ_soa = StructArray(ψ)
+    dψ_soa = StructArray(dψ)
+
+    H₀ = StructArray(H₀)
+
+    p = MutableNamedTuple(
+        H=H, ψ=ψ, dψ=dψ, ψ_soa=ψ_soa, dψ_soa=dψ_soa, ω=ω, eiωt=eiωt, Js=Jump[],
+        states=states, fields=fields, r0=r0, r=r, v=v, d=d, d_nnz=d_nnz, λ=λ, d_m=d_mag,
+        period=period, B=B, k=k, freq_res=freq_res, H₀=H₀)
+
+    return (dψ, ψ, p)
+end
+export schrödinger
+
+@with_kw mutable struct Particle
+    r0::MVector{3, Float64} = MVector(0.0, 0.0, 0.0)
+    r::MVector{3, Float64}  = MVector(0.0, 0.0, 0.0)
+    v::MVector{3, Float64}  = MVector(0.0, 0.0, 0.0)
+end
+export Particle
+
+# Round `val` to the nearest multiple of `prec`
+round_to_mult(val, prec) = (inv_prec = 1 / prec; round.(val * inv_prec) / inv_prec)
+
+function round_freq(ω, freq_res)
+    ω_min = freq_res
+    return round_to_mult(ω, ω_min)
+end
+export round_freq
+
+function round_vel(v, freq_res)
+    v_min = freq_res
+    return round_to_mult(v, v_min)
+end
+export round_vel
+
+function round_v_by_norm(v, digits)
+    v_norm = norm(v)
+    return v ./ (v_norm / round(v_norm, digits=digits))
+end
+
+function round_freqs!(states, fields, freq_res)
+    """
+    Rounds frequencies of state energies and fields by a common denominator.
+    
+    freq_res::Float: all frequencies are rounded by this value (in units of Γ)
+    """
+    for i in eachindex(fields)
+        fields.ω[i] = round_freq(fields.ω[i], freq_res)
+    end
+    for i in eachindex(states)
+        states.E[i] = round_freq(states.E[i], freq_res)
+    end
+    return nothing
+end
+
+function round_params(p)
+    round_freqs!(p.states, p.fields, p.freq_res)
+    p.v .= round_vel(p.v, p.freq_res)
+end
+export round_params
+
+function obe(particle, states, fields, d, d_m, should_round_freqs, include_jumps; λ=1.0, Γ=2π, freq_res=1e-2)
+
+    period = 2π / freq_res
+
+    n_states = length(states)
+    n_fields = length(fields)
+
+    states = StructArray(states)
+    if n_fields > 0
+        fields = StructArray(fields)
+    end
+
+    k = 2π / λ
+    particle.r0 *= 2π #(1 / k)  # `r` is in units of 1/k
+    particle.v /= (Γ / k) #(Γ / k)   # velocity is in units of Γ/k
+    # Convert to angular frequencies
+    for i ∈ eachindex(fields)
+        fields.ω[i] /= Γ
+    end
+    for i ∈ eachindex(states)
+        states.E[i] *= 2π
+        states.E[i] /= Γ
+    end
+
+    if should_round_freqs
+        round_freqs!(states, fields, freq_res)
+        particle.v = round_vel(particle.v, freq_res)
+    end
+
+    r0 = particle.r0
+    r = particle.r
+    v = particle.v
+
+    type_complex = ComplexF64
+
+    B = MVector(0.0, 0.0, 0.0)
+    H = StructArray( zeros(type_complex, n_states, n_states) )
 
     # Construct an array containing all jump operators, as defined by `d`
     Js = Array{Jump}(undef, 0)
     if include_jumps
         for s′ in eachindex(states), s in s′:n_states, q in qs
-            dme = d[s, s′, q+2]
+            dme = d[s′, s, q+2]
             # println(dme)
             if dme != 0 & (states[s′].E < states[s].E) # only energy-allowed jumps are generated
-                J = Jump(s, s′, dme)
+                J = Jump(s, s′, q, dme)
                 push!(Js, J)
             end
-        end
-
-        for J in Js
-            # Adds the term - (iħ / 2) ∑ᵢ Jᵢ† Jᵢ
-            # We assume jumps take the form Jᵢ = sqrt(Γ)|g⟩⟨e| such that Jᵢ† Jᵢ = Γ|e⟩⟨e|
-            HJ[J.s] -= 0.5 * J.r^2
         end
     end
 
     ω = [s.E for s in states]
-    eiωt  = StructArray(zeros(type_complex, n_states))
+    eiωt = StructArray(zeros(type_complex, n_states))
 
-    dρ = deepcopy(ρ)
-    ρ_soa = StructArray(ρ)
-    dρ_soa = StructArray(dρ)
-
-    # B(r) = [0,0,0]
-
-    conj_mat = ones(Float64, n_states, n_states)
-    for i in 1:n_states, j in 1:n_states
-        if j < i
-            conj_mat[i,j] = -1
-        end
-    end
+    ρ_soa = StructArray(zeros(ComplexF64, n_states, n_states))
+    dρ_soa = deepcopy(ρ_soa)
 
     # Allocate some temporary arrays
-    tmp1 = StructArray(zeros(ComplexF64, n_states, n_states))
-    tmp2 = StructArray(zeros(ComplexF64, n_states, n_states))
+    H₀ = deepcopy(ρ_soa)
+    tmp = deepcopy(ρ_soa)
 
-     # Compute indices to indicate nonzero values in d
-    d_nnz_m = Int64[]
-    d_nnz_0 = Int64[]
-    d_nnz_p = Int64[]
-    d_m = @view d[:,:,1]
-    d_0 = @view d[:,:,2]
-    d_p = @view d[:,:,3]
-    for i in 1:n_states^2
-        if d_m[i] != 0
-            push!(d_nnz_m, i)
-        end
-        if d_0[i] != 0
-            push!(d_nnz_0, i)
-        end
-        if d_p[i] != 0
-            push!(d_nnz_p, i)
-        end
-    end
+    # Compute cartesian indices to indicate nonzero transition dipole moments in `d`
+    # Indices below the diagonal of the Hamiltonian are removed, since those are defined via taking the conjugate
+    d_nnz_m = [cart_idx for cart_idx ∈ findall(d[:,:,1] .!= 0) if cart_idx[2] >= cart_idx[1]]
+    d_nnz_0 = [cart_idx for cart_idx ∈ findall(d[:,:,2] .!= 0) if cart_idx[2] >= cart_idx[1]]
+    d_nnz_p = [cart_idx for cart_idx ∈ findall(d[:,:,3] .!= 0) if cart_idx[2] >= cart_idx[1]]
     d_nnz = [d_nnz_m, d_nnz_0, d_nnz_p]
 
-    particle = Particle([0.,0,0], [0.,0,0], [0.,0,0])
+    p = (H=H, ρ_soa=ρ_soa, dρ_soa=dρ_soa, Js=Js, ω=ω, eiωt=eiωt,
+         states=states, fields=fields, r0=r0, r=r, v=v, Γ=Γ, tmp=tmp, d=d, d_nnz=d_nnz, λ=λ, d_m=d_m,
+         period=period, B=B, k=k, freq_res=freq_res, H₀=H₀)
 
-    t0 = [0.0, 0.0]
-
-    p = (H=H, HJ=HJ, ρ=ρ, dρ=dρ, ρ_soa=ρ_soa, dρ_soa=dρ_soa, Js=Js, ω=ω, eiωt=eiωt, 
-         states=states, fields=fields, particle=particle, Γ=Γ, conj_mat=conj_mat, Hₒ=Hₒ, tmp1=tmp1, tmp2=tmp2, d=d, d_nnz=d_nnz, λ=λ, t0=t0, d_m=d_mag)
-
-    return (dρ, ρ, p)
+    return p
 end
 export obe
-
-function update_H_schrödinger!(τ, v, lasers, H)
-
-    @turbo for l in eachindex(lasers)
-        s = lasers.s[l]
-        Ho_laser_m = lasers.Hqm[l]
-        Ho_laser_0 = lasers.Hq0[l]
-        Ho_laser_p = lasers.Hqp[l]
-        for i in eachindex(H)
-            H.re[i] += s * (Ho_laser_m[i] + Ho_laser_0[i] + Ho_laser_p[i])
-        end
-    end
-
-    return nothing
-end
 
 function derivative_force(p, ρ, τ)
 
@@ -384,9 +306,8 @@ function derivative_force(p, ρ, τ)
 
         d_q = @view d[:,:,q]
         d_nnz_q = d_nnz[q]
-        @inbounds for i in d_nnz_q
+        @inbounds for i ∈ d_nnz_q
             F += ampl * d_q[i] * ρ_soa[i] + conj(ampl * d_q[i] * ρ_soa[i])
-            # F += ampl * d_q[i] * ρ[i] + conj(ampl * d_q[i] * ρ[i])
         end
     end
 
@@ -394,68 +315,19 @@ function derivative_force(p, ρ, τ)
 end
 export derivative_force
 
-function force(p, ρ, τ)
-
-    @unpack fields, Γ, d, d_nnz = p
-
-    r = p.particle.r0 + p.particle.v .* τ
-    # r = p.particle.v .* τ
-    update_fields!(fields, r, τ)
-
-    base_to_soa!(ρ, p.ρ_soa)
-    update_eiωt!(p.eiωt, p.ω, τ)
-    Heisenberg!(p.ρ_soa, p.eiωt)
-
-    F = SVector(0, 0, 0)
-
-    for q in 1:3
-
-        ampl = SVector(0, 0, 0)
-        @inbounds for i in 1:length(fields)
-            s = fields.s[i]
-            k = fields.k[i]
-            ω = fields.ω[i]
-            # With SI units, should be x = -h * Γ * sqrt(s) / (2 * √2 * p.λ)
-            x = sqrt(s) / (2 * √2)
-            # x = h * Γ * sqrt(s) / (2 * √2 * p.λ)
-            ampl += k * x * im * fields.E[i][q]
-        end
-        # Note h * Γ / λ = 2π ħ * Γ / Λ = ħ * k * Γ, so this has units units of ħ k Γ
-        # println(ampl)
-        d_q = @view d[:,:,q]
-        d_nnz_q = d_nnz[q]
-        # print(d_nnz_q)
-        @inbounds for i in d_nnz_q
-            # print(ampl * d_q[i] * p.ρ_soa[i] + conj(ampl * d_q[i] * p.ρ_soa[i]))
-            F += ampl * d_q[i] * p.ρ_soa[i] + conj(ampl * d_q[i] * p.ρ_soa[i])
-            # F += ampl * d_q[i] * ρ[i] + conj(ampl * d_q[i] * ρ[i])
-        end
-    end
-
-    v = p.particle.v
-    proj_F = real.(F) ⋅ v / norm(v)
-
-#     return real(F[3])
-    return proj_F
-end
-export force
-
 function update_fields!(fields::StructVector{Laser}, r, t)
-    for i in 1:length(fields)
+    # Fields are represented as ϵ_q * exp(i(kr - ωt)), where ϵ_q is in spherical coordinates
+    for i ∈ eachindex(fields)
         k = fields.k[i]
         fields.kr[i] = k ⋅ r
     end
-    @turbo for i in 1:length(fields)
-        fields.im[i], fields.re[i] = sincos(fields.kr[i] - fields.ω[i] * t)
+    @turbo for i ∈ eachindex(fields)
+        # Compute exp(i(kr - ωt))
+        fields.im[i], fields.re[i] = sincos(- fields.kr[i] - fields.ω[i] * t) # second term needed for Heisenberg picture
     end
-    for i in 1:length(fields)
-        ϵ_re = fields.ϵ_re[i]
-        ϵ_im = fields.ϵ_im[i]
-        real_ = fields.re[i]
-        imag_ = fields.im[i]
-        real_part = ϵ_re * real_ - ϵ_im * imag_
-        imag_part = ϵ_re * imag_ + ϵ_im * real_
-        fields.E[i] .= real_part + im * imag_part
+    @simd for i ∈ eachindex(fields)
+        field_value = fields.re[i] + im * fields.im[i]
+        fields.E[i] .= field_value .* (fields.ϵ_re[i] .+ im .* fields.ϵ_im[i])
     end
     return nothing
 end
@@ -480,56 +352,60 @@ function update_fields!(fields::StructVector{Field{T}}, r, t) where T
 end
 export update_fields!
 
-function update_H!(τ, r, fields, H, conj_mat, d, d_nnz, d_m)
+function update_H!(τ, r, H₀, fields, H, d, d_nnz, B, d_m, Js, ω, Γ)
     """
     Anything uncommented in-line is from previous version.
     """
-
     update_fields!(fields, r, τ)
 
     @turbo for i in eachindex(H)
-        H.re[i] = 0
-        H.im[i] = 0
+        H.re[i] = H₀.re[i]
+        H.im[i] = H₀.im[i]
     end
 
-    @inbounds for i in 1:length(fields)
+    @inbounds for i ∈ eachindex(fields)
         s = fields.s[i]
+        ω_field = fields.ω[i]
         x = sqrt(s) / (2 * √2)
-
-        @inbounds for q in 1:3
-            field_val = fields.E[i][q]
-            freq = real(field_val) #lasers.f_re_q[i][q]
-            fimq = imag(field_val) #lasers.f_im_q[i][q]
-            if (freq > 1e-10) || (freq < -1e-10) || (fimq > 1e-10) || (fimq < -1e-10)
-                # @turbo for i in 1:size(H,1), j in 1:size(H,1)
-                #     H.re[i,j] += x * freq * d[i,j,q]
-                #     H.im[i,j] += x * fimq * d[i,j,q] * conj_mat[i,j]
-                # end
-                # The approach below which iterates only over nonzero dipole moments is a bit faster
+        @inbounds for q ∈ 1:3
+            E_i_q = fields.E[i][q]
+            if norm(E_i_q) > 1e-10
                 d_nnz_q = d_nnz[q]
                 d_q = @view d[:,:,q]
-                @inbounds @simd for i in d_nnz_q
-                    H.re[i] += x * freq * d_q[i]
-                    H.im[i] += x * fimq * d_q[i] * conj_mat[i]
+                @inbounds @simd for cart_idx ∈ d_nnz_q
+                    m, n = cart_idx.I
+                    if abs(ω_field - (ω[n] - ω[m])) < 100 # Do not include very off-resonant terms (terms detuned by >10Γ)
+                        val = x * E_i_q * d_q[m,n]
+                        H[m,n] += val
+                        H[n,m] += conj(val)
+                    end
                 end
             end
         end
     end
 
+    for J ∈ Js
+        rate = im * J.r^2 / 2
+        H[J.s, J.s] -= rate
+    end
+
     # Add Zeeman interaction terms, need to optimize this
     for q ∈ 1:3
-        for i ∈ axes(H,1), j ∈ axes(H,2)
-            H[i,j] += d_m[i,j,q]
+        B_q = 2π * norm(B ⋅ ϵ[q]) # the amount of B-field projected into each spherical component, which are already written in a Cartesian basis
+        for j ∈ axes(H,2), i ∈ axes(H,1)
+            val = B_q * d_m[i,j,4-q]
+            if j > i
+                H[i,j] -= val
+                H[j,i] -= conj(val)
+            elseif i == j
+                H[i,j] -= val
+            end
         end
     end
 
-    # @inbounds @simd for q in qs
-    #     β = (μB / (Γ * ħ)) * (B(r) ⋅ ϵ[q+2])
-    #     axpy!(β, Hₘ[q+2], H)
-    # end
-
     return nothing
 end
+export update_H!
 
 function soa_to_base!(ρ::Array{<:Complex}, ρ_soa::StructArray{<:Complex})
     @inbounds for i in eachindex(ρ, ρ_soa)
@@ -572,7 +448,23 @@ function Heisenberg!(ρ::StructArray{<:Complex}, eiωt::StructArray{<:Complex}, 
 end
 export Heisenberg!
 
-function im_commutator!(C, A, B, tmp1, tmp2, A_diag)
+function Heisenberg_ψ!(ψ::StructArray{<:Complex}, eiωt::StructArray{<:Complex}, im_factor=1)
+    @turbo for i ∈ 1:size(ψ, 1)
+        cisre = eiωt.re[i]
+        cisim = im_factor * eiωt.im[i]
+        ψ_i_re = ψ.re[i]
+        ψ_i_im = ψ.im[i]
+        ψ.re[i] = ψ_i_re * cisre - ψ_i_im * cisim
+        ψ.im[i] = ψ_i_re * cisim + ψ_i_im * cisre
+    end
+    return nothing
+end
+export Heisenberg_ψ!
+
+function im_commutator!(C, A, B, tmp)
+    # Multiply C = A * B -- (H * ρ)
+    # Add adjoint C = A * B + B† * A†
+    # Multiply by "i"
     @turbo for i ∈ 1:size(A,1), j ∈ 1:size(B,2)
         Cre = 0.0
         Cim = 0.0
@@ -586,70 +478,82 @@ function im_commutator!(C, A, B, tmp1, tmp2, A_diag)
             Cim -= Aik_re * Bkj_im + Aik_im * Bkj_re
         end
         C.re[i,j] = Cre
-        C.im[i,j] = Cim
+        C.im[i,j] = Cim # not sure about this minus sign...
     end
 
-    adjoint!(tmp1, C)
-    C_add_A!(C, tmp1, -1)
-
+    # Add adjoint, which is equivalent to ρ * H, then compute [H, ρ]
+    adjoint!(tmp, C)
+    C_add_A!(C, tmp, -1)
     mul_by_im!(C)
 
-    mul_diagonal!(tmp1, B, A_diag)
-    adjoint!(tmp2, tmp1)
+    # C .= -im * (A * B - B * A')
 
-    C_add_AplusB!(C, tmp1, tmp2, 1, 1)
+    # Add diagonal (jump) elements (ρ * H_jumps), add adjoint (H_jumps * ρ) as well
+    # mul_diagonal!(tmp1, B, A_diag)
+    # adjoint!(tmp2, tmp1)
+
+    # Add everything together
+    # C_add_AplusB!(C, tmp1, tmp2, 1, 1)
 
 end
 export im_commutator!
 
 function ψ!(dψ, ψ, p, τ)
 
-    # @avx p.H .= 0
-    # @avx p.ψ_soa .= ψ
     base_to_soa!(ψ, p.ψ_soa)
     
-    # Update the Hamiltonian according to the new time τ
-    p.f(p.H, τ, p.p)
+    update_H!(τ, p.r, p.H₀, p.fields, p.H, p.d, p.d_nnz, p.B, p.d_m, p.Js, p.ω, nothing)
     
-    jgemvavx!(p.dψ_soa, p.H, p.ψ_soa)
+    update_eiωt!(p.eiωt, p.ω, τ)
+    # Heisenberg_ψ!(p.ψ_soa, p.eiωt, -1)
     
+    Heisenberg!(p.H, p.eiωt, -1)
+    mul_by_im_minus!(p.ψ_soa)
+    mul_turbo!(p.dψ_soa, p.H, p.ψ_soa)
+    
+    # Heisenberg_ψ!(p.dψ_soa, p.eiωt, -1)
     soa_to_base!(dψ, p.dψ_soa)
 
     return nothing
 end
 export ψ!
 
+# Note that we specialize to the type of the parameter argument, `p`
 function ρ!(dρ, ρ, p, τ)
 
-    p.particle.r = p.particle.r0 + p.particle.v .* τ
+    p.r .= p.r0 + p.v .* τ
 
     base_to_soa!(ρ, p.ρ_soa)
-    #p.ρ_soa .= ρ
 
     # Update the Hamiltonian according to the new time τ
-    update_H!(τ, p.particle.r, p.fields, p.H, p.conj_mat, p.d, p.d_nnz, p.d_m)
+    update_H!(τ, p.r, p.H₀, p.fields, p.H, p.d, p.d_nnz, p.B, p.d_m, p.Js, p.ω, p.Γ)
 
     # Apply a transformation to go to the Heisenberg picture
     update_eiωt!(p.eiωt, p.ω, τ)
     Heisenberg!(p.ρ_soa, p.eiωt)
 
     # Compute coherent evolution terms
-    # im_commutator!(p.dρ_soa, p.H, p.ρ_soa, p.A12, p.B12, p.T1, p.T2, p.HJ, p.tmp1, p.tmp2)
-    im_commutator!(p.dρ_soa, p.H, p.ρ_soa, p.tmp1, p.tmp2, p.HJ)
+    im_commutator!(p.dρ_soa, p.H, p.ρ_soa, p.tmp)
 
     # Add the terms ∑ᵢ Jᵢ ρ Jᵢ†
     # We assume jumps take the form Jᵢ = sqrt(Γ)|g⟩⟨e| such that JᵢρJᵢ† = Γ^2|g⟩⟨g|ρₑₑ
-    @inbounds for i in eachindex(p.Js)
+    @inbounds for i ∈ eachindex(p.Js)
         J = p.Js[i]
-        p.dρ_soa.re[J.s′, J.s′] += J.r^2 * p.ρ_soa.re[J.s, J.s]
+        p.dρ_soa[J.s′, J.s′] += J.r^2 * p.ρ_soa[J.s, J.s]
+        @inbounds for j ∈ (i+1):length(p.Js)
+            J′ = p.Js[j]
+            if J.q == J′.q
+                val = J.r * J′.r * p.ρ_soa[J.s, J′.s]
+                p.dρ_soa[J.s′, J′.s′] += val
+                p.dρ_soa[J′.s′, J.s′] += conj(val)
+            end
+        end
     end
 
     # The left-hand side also needs to be transformed into the Heisenberg picture
     # To do this, we require the transpose of the `ω` matrix
-    # Heisenberg!(p.dρ_soa, p.ω_trans, τ)
     Heisenberg!(p.dρ_soa, p.eiωt, -1)
     soa_to_base!(dρ, p.dρ_soa)
-    # p.dρ .= dρ
 
     return nothing
 end
@@ -753,6 +657,14 @@ function mul_by_im!(C::StructArray{<:Complex})
     end
 end
 
+function mul_by_im_minus!(C::StructArray{<:Complex})
+    @turbo for i ∈ eachindex(C)
+        a = C.re[i]
+        C.re[i] = C.im[i]
+        C.im[i] = -a
+    end
+end
+
 function mul_diagonal!(C::StructArray{<:Complex}, A::StructArray{<:Complex}, B::Array{<:Real})
     """
     Computes A × B, where B is diagonal and real.
@@ -765,6 +677,7 @@ function mul_diagonal!(C::StructArray{<:Complex}, A::StructArray{<:Complex}, B::
         end
     end
 end
+export mul_diagonal!
 
 function update_T₁T₂!(T1::Array{<:Real}, T2::Array{<:Real}, A::StructArray{<:Complex}, B::StructArray{<:Complex})
     @turbo for i ∈ 1:size(A,1), j ∈ 1:size(B,2)
@@ -776,6 +689,55 @@ function update_T₁T₂!(T1::Array{<:Real}, T2::Array{<:Real}, A::StructArray{<
         end
         T1[i,j] = C1
         T2[i,j] = C2
+    end
+end
+
+# Wigner D-matrix to rotate polarization vector
+# D(cosβ, sinβ, α, γ) = [
+#     (1/2)*(1 + cosβ)*exp(-im*(α + γ)) -(1/√2)*sinβ*exp(-im*α) (1/2)*(1 - cosβ)*exp(-im*(α - γ));
+#     (1/√2)*sinβ*exp(-im*γ) cosβ -(1/√2)*sinβ*exp(im*γ);
+#     (1/2)*(1 - cosβ)*exp(im*(α - γ)) (1/√2)*sinβ*exp(im*α) (1/2)*(1 + cosβ)*exp(im*(α + γ))
+# ]
+function D(cosβ, sinβ, α, γ)
+    γ = -γ
+    # Sign convention is different than the matrix above 
+    return [
+        (1/2)*(1 + cosβ)*exp(-im*(α + γ)) -(1/√2)*sinβ*exp(-im*α) (1/2)*(1 - cosβ)*exp(-im*(α - γ));
+        (1/√2)*sinβ*exp(-im*γ) cosβ -(1/√2)*sinβ*exp(im*γ);
+        (1/2)*(1 - cosβ)*exp(im*(α - γ)) (1/√2)*sinβ*exp(im*α) (1/2)*(1 + cosβ)*exp(im*(α + γ))
+    ]
+end
+
+function rotate_pol(pol, k)
+    # Rotates polarization `pol` onto the quantization axis `k`
+    k = k / norm(k)
+    cosβ = k[3]
+    sinβ = sqrt(1 - cosβ^2)
+    α = 0.0
+    if abs(cosβ) < 1
+        γ = atan(k[2], k[1])
+    else
+        γ = 0.0
+    end
+    return inv(D(cosβ, sinβ, α, γ)) * pol
+end
+export rotate_pol
+
+# Multiplication using `@turbo` from LoopVectorization
+function mul_turbo!(C, A, B)
+    @turbo for m ∈ 1:size(A,1), n ∈ 1:size(B,2)
+        Cmn_re = 0.0
+        Cmn_im = 0.0
+        for k ∈ 1:size(A,2)
+            A_mk_re = A.re[m,k]
+            A_mk_im = A.im[m,k]
+            B_kn_re = B.re[k,n]
+            B_kn_im = B.im[k,n]
+            Cmn_re += A_mk_re * B_kn_re - A_mk_im * B_kn_im
+            Cmn_im += A_mk_re * B_kn_im + A_mk_im * B_kn_re
+        end
+        C.re[m,n] = Cmn_re
+        C.im[m,n] = Cmn_im
     end
 end
 
