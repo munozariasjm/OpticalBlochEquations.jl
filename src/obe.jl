@@ -1,6 +1,5 @@
 import StaticArrays: SVector, MVector
 import StructArrays: StructArray, StructVector
-import Parameters: @with_kw
 import LoopVectorization: @turbo
 
 export schrödinger, obe
