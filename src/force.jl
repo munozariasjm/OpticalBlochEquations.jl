@@ -1,6 +1,6 @@
 import DifferentialEquations: ODEProblem, solve
 import ProgressMeter: Progress
-import Parameters: @with_kw
+import Parameters: @unpack
 
 function force(p, ρ, τ)
     F = SVector(0.0, 0.0, 0.0)
