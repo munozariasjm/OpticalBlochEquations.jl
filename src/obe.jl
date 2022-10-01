@@ -390,7 +390,7 @@ export ψ!
 """
     ρ!(dρ, ρ, p, τ)
 
-    Evaluates the change in the density matrix `dρ` given the current density matrix `ρ` for parameters `p` and time `τ`.
+Evaluates the change in the density matrix `dρ` given the current density matrix `ρ` for parameters `p` and time `τ`.
 """
 function ρ!(dρ, ρ, p, τ)
 
