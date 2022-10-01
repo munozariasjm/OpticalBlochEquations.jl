@@ -387,6 +387,11 @@ function ψ!(dψ, ψ, p, τ)
 end
 export ψ!
 
+"""
+    ρ!(dρ, ρ, p, τ)
+
+    Evaluates the change in the density matrix `dρ` given the current density matrix `ρ` for parameters `p` and time `τ`.
+"""
 function ρ!(dρ, ρ, p, τ)
 
     @unpack H, H₀, dρ_soa, ρ_soa, tmp, Js, eiωt, ω, fields, d, d_m, d_nnz, B, Γ, r, r0, v = p
