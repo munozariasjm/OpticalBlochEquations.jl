@@ -264,3 +264,26 @@ function param_scan(update_func::F1, evaluate_func::F2, prob::ODEProblem, outer_
 
 end
 export force_scan
+
+# Define callbacks to calculate force and terminate integration once it has converged
+# condition(u, t, integrator) = false #integrator.p.force
+# affect!(integrator) = terminate!(integrator)
+# cb = DiscreteCallback(condition, affect!)
+
+function force_callback!(integrator)
+    # if integrator.t > 10integrator.p.period
+    p = integrator.p
+    force = force_noupdate(p) / p.n_force_values
+    modded_idx = mod1(p.force_idx, p.n_force_values)
+    p.forces[modded_idx] += force
+    for i ∈ 1:10
+        modded_idx1 = mod1(p.force_idx - i * 100, p.n_force_values)
+        modded_idx2 = mod1(modded_idx1 + 1, p.n_force_values)
+        p.force_chunks[i] += p.forces[modded_idx1]
+        p.force_chunks[i] -= p.forces[modded_idx2]
+    end
+    p.force_idx += 1
+    # end
+    return nothing
+end
+;

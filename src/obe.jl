@@ -1,7 +1,9 @@
+import MutableNamedTuples: MutableNamedTuple
 import StructArrays: StructArray, StructVector
+import LinearAlgebra: norm, ⋅, adjoint!
 import LoopVectorization: @turbo
 
-export schrödinger, obe
+export Particle, schrödinger, obe
 
 """
 Structure for quantum jumps from state `s` to state `s′` with rate `r`.
@@ -122,7 +124,7 @@ function round_params(p)
 end
 export round_params
 
-function obe(particle, states, fields, d, d_m, should_round_freqs, include_jumps; λ=1.0, Γ=2π, freq_res=1e-2)
+function obe(ρ0, particle, states, fields, d, d_m, should_round_freqs, include_jumps, λ=1.0, Γ=2π, freq_res=1e-2; kwargs...)
 
     period = 2π / freq_res
 
@@ -165,7 +167,6 @@ function obe(particle, states, fields, d, d_m, should_round_freqs, include_jumps
     if include_jumps
         for s′ in eachindex(states), s in s′:n_states, q in qs
             dme = d[s′, s, q+2]
-            # println(dme)
             if dme != 0 & (states[s′].E < states[s].E) # only energy-allowed jumps are generated
                 J = Jump(s, s′, q, dme)
                 push!(Js, J)
@@ -190,9 +191,17 @@ function obe(particle, states, fields, d, d_m, should_round_freqs, include_jumps
     d_nnz_p = [cart_idx for cart_idx ∈ findall(d[:,:,3] .!= 0) if cart_idx[2] >= cart_idx[1]]
     d_nnz = [d_nnz_m, d_nnz_0, d_nnz_p]
 
-    p = (H=H, ρ_soa=ρ_soa, dρ_soa=dρ_soa, Js=Js, ω=ω, eiωt=eiωt,
-         states=states, fields=fields, r0=r0, r=r, v=v, Γ=Γ, tmp=tmp, d=d, d_nnz=d_nnz, λ=λ, d_m=d_m,
-         period=period, B=B, k=k, freq_res=freq_res, H₀=H₀)
+    # The last 3 indices are for the force
+    ρ0_vec = [[ρ0[i] for i ∈ eachindex(ρ0)]; zeros(3)]
+
+    force_last_period = SVector(0.0, 0.0, 0.0)
+
+    p = MutableNamedTuple(
+        H=H, ρ0_vec=ρ0_vec, ρ_soa=ρ_soa, dρ_soa=dρ_soa, Js=Js, ω=ω, eiωt=eiωt,
+        states=states, fields=fields, r0=r0, r=r, v=v, Γ=Γ, tmp=tmp, d=d, d_nnz=d_nnz, λ=λ, d_m=d_m,
+        period=period, B=B, k=k, freq_res=freq_res, H₀=H₀,
+        force_last_period=force_last_period,
+        ; kwargs...)
 
     return p
 end
@@ -269,13 +278,21 @@ end
 export update_H!
 
 function soa_to_base!(ρ::Array{<:Complex}, ρ_soa::StructArray{<:Complex})
-    @inbounds for i in eachindex(ρ, ρ_soa)
+    @inbounds for i in eachindex(ρ_soa)
         ρ[i] = ρ_soa.re[i] + im * ρ_soa.im[i]
     end
     return nothing
 end
 
 function base_to_soa!(ρ::Array{<:Complex}, ρ_soa::StructArray{<:Complex})
+    @inbounds for i in eachindex(ρ_soa)
+        ρ_soa.re[i] = real(ρ[i])
+        ρ_soa.im[i] = imag(ρ[i])
+    end
+    return nothing
+end
+
+function base_to_soa_vec!(ρ::Array{<:Complex}, ρ_soa::StructArray{<:Complex})
     @inbounds for i in eachindex(ρ, ρ_soa)
         ρ_soa.re[i] = real(ρ[i])
         ρ_soa.im[i] = imag(ρ[i])
@@ -372,39 +389,43 @@ export ψ!
 
 function ρ!(dρ, ρ, p, τ)
 
-    p.r .= p.r0 + p.v .* τ
+    @unpack H, H₀, dρ_soa, ρ_soa, tmp, Js, eiωt, ω, fields, d, d_m, d_nnz, B, Γ, r, r0, v = p
 
-    base_to_soa!(ρ, p.ρ_soa)
+    r .= r0 .+ v * τ
+
+    base_to_soa!(ρ, ρ_soa)
 
     # Update the Hamiltonian according to the new time τ
-    update_H!(τ, p.r, p.H₀, p.fields, p.H, p.d, p.d_nnz, p.B, p.d_m, p.Js, p.ω, p.Γ)
+    update_H!(τ, r, H₀, fields, H, d, d_nnz, B, d_m, Js, ω, Γ)
 
     # Apply a transformation to go to the Heisenberg picture
-    update_eiωt!(p.eiωt, p.ω, τ)
-    Heisenberg!(p.ρ_soa, p.eiωt)
+    update_eiωt!(eiωt, ω, τ)
+    Heisenberg!(ρ_soa, eiωt)
 
     # Compute coherent evolution terms
-    im_commutator!(p.dρ_soa, p.H, p.ρ_soa, p.tmp)
+    im_commutator!(dρ_soa, H, ρ_soa, tmp)
 
     # Add the terms ∑ᵢ Jᵢ ρ Jᵢ†
     # We assume jumps take the form Jᵢ = sqrt(Γ)|g⟩⟨e| such that JᵢρJᵢ† = Γ^2|g⟩⟨g|ρₑₑ
-    @inbounds for i ∈ eachindex(p.Js)
-        J = p.Js[i]
-        p.dρ_soa[J.s′, J.s′] += J.r^2 * p.ρ_soa[J.s, J.s]
+    @inbounds for i ∈ eachindex(Js)
+        J = Js[i]
+        dρ_soa[J.s′, J.s′] += J.r^2 * ρ_soa[J.s, J.s]
         @inbounds for j ∈ (i+1):length(p.Js)
-            J′ = p.Js[j]
+            J′ = Js[j]
             if J.q == J′.q
-                val = J.r * J′.r * p.ρ_soa[J.s, J′.s]
-                p.dρ_soa[J.s′, J′.s′] += val
-                p.dρ_soa[J′.s′, J.s′] += conj(val)
+                val = J.r * J′.r * ρ_soa[J.s, J′.s]
+                dρ_soa[J.s′, J′.s′] += val
+                dρ_soa[J′.s′, J.s′] += conj(val)
             end
         end
     end
 
     # The left-hand side also needs to be transformed into the Heisenberg picture
     # To do this, we require the transpose of the `ω` matrix
-    Heisenberg!(p.dρ_soa, p.eiωt, -1)
-    soa_to_base!(dρ, p.dρ_soa)
+    Heisenberg!(dρ_soa, eiωt, -1)
+    soa_to_base!(dρ, dρ_soa)
+
+    dρ[end-2:end] = force_noupdate(fields, d, d_nnz, ρ_soa, Γ)
 
     return nothing
 end

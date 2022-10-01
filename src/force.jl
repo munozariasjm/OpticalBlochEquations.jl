@@ -1,6 +1,32 @@
-import DifferentialEquations: ODEProblem, solve
-import ProgressMeter: Progress
+import DifferentialEquations: ODEProblem, solve, DP5, PeriodicCallback, terminate!
+import ProgressMeter: Progress, next!
 import Parameters: @unpack
+import Statistics: mean
+
+function force_noupdate(fields, d, d_nnz, ρ_soa, Γ)
+    F = SVector(0.0, 0.0, 0.0)
+
+    @inbounds for i ∈ eachindex(fields)
+        s = fields.s[i]
+        x = sqrt(s) / (2 * √2)
+        k = fields.k[i]
+        E = fields.E[i]
+        ampl_factor = (x * im) * k
+        @inbounds for q ∈ 1:3
+            # With SI units, should be x = -h * Γ * sqrt(s) / (2 * √2 * p.λ)
+            ampl = ampl_factor * E[q]
+            # Note h * Γ / λ = 2π ħ * Γ / Λ = ħ * k * Γ, so this has units units of ħ k Γ
+            d_q = @view d[:,:,q]
+            d_nnz_q = d_nnz[q]
+            @inbounds for j ∈ d_nnz_q
+                F -= ampl * d_q[j] * conj(ρ_soa[j]) #+ conj(ampl * d_q[j] * ρ[j])
+            end
+        end
+    end
+    F += conj(F)
+    return real.(F)
+end
+export force_noupdate
 
 function force(p, ρ, τ)
     F = SVector(0.0, 0.0, 0.0)
@@ -76,7 +102,21 @@ function find_idx_for_time(time_to_find, times, backwards)
 end
 export find_idx_for_time
 
-function force_scan(prob, scan_values::T, prob_func!::F1, param_func::F2, output_func::F3; n_threads=Threads.nthreads()) where {T,F1,F2,F3}
+# Implement a periodic callback to reset the force each period
+function reset_force!(integrator)
+    force_current_period = integrator.u[end-2:end] / integrator.p.period
+    force_diff = abs.(force_current_period - integrator.p.force_last_period)
+    integrator.p.force_last_period = force_current_period
+    force_tol = 1e-6
+    if force_diff[1] < force_tol && force_diff[2] < force_tol && force_diff[3] < force_tol
+        terminate!(integrator)
+    else
+        integrator.u[end-2:end] .= 0.0
+    end
+    return nothing
+end
+
+function force_scan(prob::T1, scan_values::T2, prob_func!::F1, param_func::F2, output_func::F3; n_threads=Threads.nthreads()) where {T1,T2,F1,F2,F3}
 
     n_values = length(first(scan_values))
     batch_size = fld(n_values, n_threads)
@@ -84,6 +124,7 @@ function force_scan(prob, scan_values::T, prob_func!::F1, param_func::F2, output
     params = zeros(Float64, n_values)
     forces = zeros(Float64, n_values)
 
+    cb = PeriodicCallback(reset_force!, prob.p.period)
     prog_bar = Progress(n_values)
 
     @sync for i ∈ 1:n_threads
@@ -94,7 +135,7 @@ function force_scan(prob, scan_values::T, prob_func!::F1, param_func::F2, output
             batch_start_idx = 1 + ((i <= remainder) ? i : remainder) + batch_size * (i-1)
             for j ∈ batch_start_idx:(batch_start_idx + _batch_size)
                 prob_func!(_prob.p, scan_values, j)
-                sol = solve(_prob, alg=DP5(), abstol=1e-4)
+                sol = solve(_prob, alg=DP5(), callback=cb, abstol=1e-4)
                 params[j] = param_func(_prob.p, scan_values, j)
                 forces[j] = output_func(_prob.p, sol)
                 next!(prog_bar)
@@ -104,6 +145,35 @@ function force_scan(prob, scan_values::T, prob_func!::F1, param_func::F2, output
     return params, forces
 end
 export force_scan
+
+# function force_scan(prob, scan_values::T, prob_func!::F1, param_func::F2, output_func::F3; n_threads=Threads.nthreads()) where {T,F1,F2,F3}
+
+#     n_values = length(first(scan_values))
+#     batch_size = fld(n_values, n_threads)
+#     remainder = n_values - batch_size * n_threads
+#     params = zeros(Float64, n_values)
+#     forces = zeros(Float64, n_values)
+
+#     prog_bar = Progress(n_values)
+
+#     @sync for i ∈ 1:n_threads
+#         _prob = deepcopy(prob)
+#         Threads.@spawn begin
+#             prob_func!(_prob.p, scan_values, i)
+#             _batch_size = i <= remainder ? (batch_size + 1) : batch_size - 1
+#             batch_start_idx = 1 + ((i <= remainder) ? i : remainder) + batch_size * (i-1)
+#             for j ∈ batch_start_idx:(batch_start_idx + _batch_size)
+#                 prob_func!(_prob.p, scan_values, j)
+#                 sol = solve(_prob, alg=DP5(), abstol=1e-4)
+#                 params[j] = param_func(_prob.p, scan_values, j)
+#                 forces[j] = output_func(_prob.p, sol)
+#                 next!(prog_bar)
+#             end
+#         end
+#     end
+#     return params, forces
+# end
+# export force_scan
 
 idx_finder = x->findall.(.==(unique(x)), Ref(x) )
 function average_forces(params, forces)
