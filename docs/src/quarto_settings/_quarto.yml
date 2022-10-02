@@ -2,7 +2,7 @@ project:
   title: "quarto_notebooks"
   render:
     - "/../../../notebooks/"
-  output-dir: "~/quarto_notebooks/"
+  output-dir: "~/notebooks/"
 
 execute:
   freeze: auto
