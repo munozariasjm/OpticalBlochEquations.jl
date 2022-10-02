@@ -1,5 +1,9 @@
 project:
   title: "quarto_notebooks"
+  render: 
+    - "/../notebooks"
 
 freeze: auto
+
+
 
