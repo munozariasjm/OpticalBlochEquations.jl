@@ -1,11 +1,8 @@
 project:
   type: website
-  # render: 
-  #   - /../../../notebooks/
-  # output-dir: "/"
 
 website:
-  title: "..."
+  title: "OpticalBlochEquations.jl"
   navbar:
     background: primary
     search: true
@@ -13,7 +10,8 @@ website:
       - text: "Home"
         file: index.qmd
       - about.qmd
-      - ipynb_sources/Blue-detuned MOT (CaOH).ipynb
+      - text: "Example 1"
+        file: "ipynb_sources/Blue-detuned MOT (CaOH).ipynb"
       
 
 format:
