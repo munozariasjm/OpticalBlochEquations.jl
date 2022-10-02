@@ -1,6 +1,7 @@
 /* css styles */
 
 #quarto-document-content {
+    margin: auto
     text-align: center;
     width: 2000px
 }
