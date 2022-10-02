@@ -2,12 +2,8 @@
 
 #quarto-document-content {
     margin: auto;
-    text-align: center;
-    width: 2000px
 }
   
 #quarto-margin-sidebar {
-    text-align: center;
-    margin-right: -600px;
-    margin-left: 500px
+    margin: auto;
 }
