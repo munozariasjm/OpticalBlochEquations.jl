@@ -1,8 +1,0 @@
-project:
-  title: "quarto_notebooks"
-  render:
-    - "notebooks"
-  # output-dir: "~/notebooks/"
-
-execute:
-  freeze: auto

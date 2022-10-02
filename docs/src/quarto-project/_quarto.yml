@@ -1,0 +1,7 @@
+project:
+  title: "quarto-project"
+
+execute:
+  freeze: auto
+
+
