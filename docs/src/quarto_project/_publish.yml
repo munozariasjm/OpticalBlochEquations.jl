@@ -1,0 +1,3 @@
+source: project
+  quarto-pub:
+    - url: "https://christian-hh.github.io/OpticalBlochEquations.jl/"
