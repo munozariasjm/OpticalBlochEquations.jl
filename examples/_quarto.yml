@@ -15,10 +15,8 @@ website:
             file: "ipynb_sources/Blue-detuned MOT (CaOH).ipynb"
 
 format:
-  html:
-    page-layout: full
-    # theme: cosmo
-    # css: styles.css
-    # toc: true
+    theme: cosmo
+    css: styles.css
+    toc: true
 
 freeze: auto
