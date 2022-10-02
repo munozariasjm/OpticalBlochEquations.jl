@@ -1,5 +1,5 @@
 ---
-title: "quarto-project"
+title: "quarto_notebooks"
 ---
 
 ## Quarto
