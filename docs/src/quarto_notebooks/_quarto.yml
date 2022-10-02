@@ -1,5 +1,25 @@
 project:
-  title: "quarto_notebooks"
+  type: website
+  # render: 
+  #   - /../../../notebooks/
+  # output-dir: "/"
 
+website:
+  title: "..."
+  navbar:
+    background: primary
+    search: true
+    left:
+      - text: "Home"
+        file: index.qmd
+      - about.qmd
+      - ipynb_sources/Blue-detuned MOT (CaOH).ipynb
+      
 
+format:
+  html:
+    theme: cosmo
+    css: styles.css
+    toc: true
 
+freeze: auto
