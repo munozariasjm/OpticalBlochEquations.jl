@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.1.251">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>OpticalBlochEquations.jl – f1_to_f1_cooling</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 20,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit"
+  }
+}</script>
+
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<link rel="stylesheet" href="../styles.css">
+</head>
+
+<body class="nav-sidebar floating">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+    <div class="container-fluid d-flex justify-content-between">
+      <h1 class="quarto-secondary-nav-title">(Untitled)</h1>
+      <button type="button" class="quarto-btn-toggle btn" aria-label="Show secondary navigation">
+        <i class="bi bi-chevron-right"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="../">OpticalBlochEquations.jl</a> 
+    </div>
+      </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-expanded="true">Examples</a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-expanded="true">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../ipynb_sources/Blue-detuned MOT (CaOH).html" class="sidebar-item-text sidebar-link">Blue-detuned MOT for CaOH</a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../ipynb_sources/F1_to_F1_cooling.html" class="sidebar-item-text sidebar-link active">Laser cooling for an <span class="math inline">\(F_1\)</span> to <span class="math inline">\(F_1\)</span> system</a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#force-curves-versus-velocity-for-an-f_1-rightarrow-f_1-system" id="toc-force-curves-versus-velocity-for-an-f_1-rightarrow-f_1-system" class="nav-link active" data-scroll-target="#force-curves-versus-velocity-for-an-f_1-rightarrow-f_1-system">Force curves versus velocity for an <span class="math inline">\(F_1 \rightarrow F_1\)</span> system</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+
+
+<section id="force-curves-versus-velocity-for-an-f_1-rightarrow-f_1-system" class="level1">
+<h1>Force curves versus velocity for an <span class="math inline">\(F_1 \rightarrow F_1\)</span> system</h1>
+<p>In this notebook, we simulate cooling for an <span class="math inline">\(F_1 \rightarrow F_1\)</span> system. In particular, we reproduces figures from <a href="https://doi.org/10.1088/1367-2630/18/12/123017">NJP 18, 123017 (2016)</a>.</p>
+<div class="cell" data-execution_count="178">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1"></a><span class="im">using</span></span>
+<span id="cb1-2"><a href="#cb1-2"></a>    <span class="bu">QuantumStates</span>,</span>
+<span id="cb1-3"><a href="#cb1-3"></a>    <span class="bu">OpticalBlochEquations</span>,</span>
+<span id="cb1-4"><a href="#cb1-4"></a>    <span class="bu">DifferentialEquations</span>,</span>
+<span id="cb1-5"><a href="#cb1-5"></a>    <span class="bu">UnitsToValue</span></span>
+<span id="cb1-6"><a href="#cb1-6"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>We’ll first define a few physical constants needed for this simulation.</p>
+<div class="cell" data-execution_count="179">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1"></a>λ <span class="op">=</span> <span class="fl">1</span>; Γ <span class="op">=</span> <span class="fl">2</span>π; m <span class="op">=</span> <span class="fl">1</span>; k <span class="op">=</span> <span class="fl">2</span>π <span class="op">/</span> λ;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Using <code>QuantumStates</code>, we can create both the ground states (<code>F1_lower</code>) and excited states (<code>F1_upper</code>) using the <code>AngularMomentumState</code> type, which is a state type of “bare” angular momentum states <span class="math inline">\(|F,m\rangle\)</span>.</p>
+<div class="cell" data-execution_count="180">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1"></a><span class="co"># F = 1</span></span>
+<span id="cb3-2"><a href="#cb3-2"></a>QN_bounds <span class="op">=</span> (E <span class="op">=</span> <span class="fl">0.0</span>, F <span class="op">=</span> <span class="fl">1</span>)</span>
+<span id="cb3-3"><a href="#cb3-3"></a>F1_lower <span class="op">=</span> <span class="fu">enumerate_states</span>(AngularMomentumState, QN_bounds)</span>
+<span id="cb3-4"><a href="#cb3-4"></a>QN_bounds <span class="op">=</span> (E <span class="op">=</span> <span class="fl">1.0</span>, F <span class="op">=</span> <span class="fl">1</span>)</span>
+<span id="cb3-5"><a href="#cb3-5"></a>F1_upper <span class="op">=</span> <span class="fu">enumerate_states</span>(AngularMomentumState, QN_bounds)</span>
+<span id="cb3-6"><a href="#cb3-6"></a></span>
+<span id="cb3-7"><a href="#cb3-7"></a>ground_states <span class="op">=</span> F1_lower</span>
+<span id="cb3-8"><a href="#cb3-8"></a>excited_states <span class="op">=</span> F1_upper</span>
+<span id="cb3-9"><a href="#cb3-9"></a>states <span class="op">=</span> [ground_states; excited_states]</span>
+<span id="cb3-10"><a href="#cb3-10"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>The transition dipole moments <code>d</code> and the magnetic moments <code>d_m</code> are calculated using <code>QuantumStates.get_tdms_two_bases</code>:</p>
+<div class="cell" data-execution_count="181">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1"></a>d_ge <span class="op">=</span> <span class="fu">get_tdms_two_bases</span>(ground_states, excited_states, TDM)</span>
+<span id="cb4-2"><a href="#cb4-2"></a>d <span class="op">=</span> [</span>
+<span id="cb4-3"><a href="#cb4-3"></a>    [<span class="fu">zeros</span>(<span class="fu">length</span>(ground_states), <span class="fu">length</span>(excited_states), <span class="fl">3</span>); <span class="fu">permutedims</span>(d_ge, (<span class="fl">2</span>,<span class="fl">1</span>,<span class="fl">3</span>))] [d_ge; <span class="fu">zeros</span>(<span class="fu">length</span>(excited_states), <span class="fu">length</span>(ground_states), <span class="fl">3</span>)]</span>
+<span id="cb4-4"><a href="#cb4-4"></a>]</span>
+<span id="cb4-5"><a href="#cb4-5"></a></span>
+<span id="cb4-6"><a href="#cb4-6"></a>d_m_ge <span class="op">=</span> <span class="fu">get_tdms_two_bases</span>(ground_states, excited_states, TDM_magnetic)</span>
+<span id="cb4-7"><a href="#cb4-7"></a>d_m <span class="op">=</span> [</span>
+<span id="cb4-8"><a href="#cb4-8"></a>    [d_m_ge; <span class="fu">zeros</span>(<span class="fu">length</span>(ground_states), <span class="fu">length</span>(excited_states), <span class="fl">3</span>)] [<span class="fu">zeros</span>(<span class="fu">length</span>(excited_states), <span class="fu">length</span>(ground_states), <span class="fl">3</span>); d_m_ge]</span>
+<span id="cb4-9"><a href="#cb4-9"></a>]</span>
+<span id="cb4-10"><a href="#cb4-10"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>We now define the lasers, along with the detuning <span class="math inline">\(\Delta\)</span> and saturation <span class="math inline">\(s\)</span>. Note that all lasers have the polarization <span class="math inline">\(\sigma^+\)</span> in their own frame, which is rotated to the <span class="math inline">\(\hat{z}\)</span> axis using <code>rotate_pol</code>. (Technically, the rotation is performed <em>from</em> the <span class="math inline">\(\hat{z}\)</span> axis <em>to</em> the axis of the given laser’s <span class="math inline">\(k\)</span>-vector because the variable <span class="math inline">\(\sigma^+\)</span> is defined relative to the <span class="math inline">\(\hat{z}\)</span> axis.)</p>
+<div class="cell" data-execution_count="182">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1"></a><span class="co"># Laser parameters</span></span>
+<span id="cb5-2"><a href="#cb5-2"></a>Δ <span class="op">=</span> <span class="op">-</span><span class="fl">2.5</span>Γ</span>
+<span id="cb5-3"><a href="#cb5-3"></a>s <span class="op">=</span> <span class="fl">1.0</span></span>
+<span id="cb5-4"><a href="#cb5-4"></a></span>
+<span id="cb5-5"><a href="#cb5-5"></a><span class="co"># Frequency of the lasers (in angular frequency units)</span></span>
+<span id="cb5-6"><a href="#cb5-6"></a>ω_F1_to_F1 <span class="op">=</span> <span class="fl">2</span>π <span class="op">*</span> (F1_upper[<span class="fl">1</span>].E <span class="op">-</span> F1_lower[<span class="fl">1</span>].E) <span class="op">+</span> Δ</span>
+<span id="cb5-7"><a href="#cb5-7"></a></span>
+<span id="cb5-8"><a href="#cb5-8"></a>k̂ <span class="op">=</span> <span class="op">+</span>x̂; ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(σ⁺, k̂); laser1 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb5-9"><a href="#cb5-9"></a>k̂ <span class="op">=</span> <span class="op">-</span>x̂; ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(σ⁺, k̂); laser2 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb5-10"><a href="#cb5-10"></a>k̂ <span class="op">=</span> <span class="op">+</span>ŷ; ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(σ⁺, k̂); laser3 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb5-11"><a href="#cb5-11"></a>k̂ <span class="op">=</span> <span class="op">-</span>ŷ; ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(σ⁺, k̂); laser4 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb5-12"><a href="#cb5-12"></a>k̂ <span class="op">=</span> <span class="op">+</span>ẑ; ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(σ⁺, k̂); laser5 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb5-13"><a href="#cb5-13"></a>k̂ <span class="op">=</span> <span class="op">-</span>ẑ; ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(σ⁺, k̂); laser6 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb5-14"><a href="#cb5-14"></a></span>
+<span id="cb5-15"><a href="#cb5-15"></a>lasers <span class="op">=</span> [laser1, laser2, laser3, laser4, laser5, laser6]</span>
+<span id="cb5-16"><a href="#cb5-16"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>Before computing the force across a range of velocities, let’s first check that our simulation produces reasonable results for a specific set of parameters:</p>
+<div class="cell" data-execution_count="183">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1"></a><span class="co"># `Particle` type defines the starting position `r0` and velocity `v` used for the simulation</span></span>
+<span id="cb6-2"><a href="#cb6-2"></a>particle <span class="op">=</span> <span class="fu">Particle</span>()</span>
+<span id="cb6-3"><a href="#cb6-3"></a>particle.r0 <span class="op">=</span> [<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>]</span>
+<span id="cb6-4"><a href="#cb6-4"></a>particle.v <span class="op">=</span> [<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.1</span>]</span>
+<span id="cb6-5"><a href="#cb6-5"></a></span>
+<span id="cb6-6"><a href="#cb6-6"></a><span class="co"># Define the density matrix `ρ0` at t = 0</span></span>
+<span id="cb6-7"><a href="#cb6-7"></a>ρ<span class="fl">0</span> <span class="op">=</span> <span class="fu">zeros</span>(<span class="dt">ComplexF64</span>, <span class="fu">length</span>(states), <span class="fu">length</span>(states))</span>
+<span id="cb6-8"><a href="#cb6-8"></a>ρ<span class="fl">0</span>[<span class="fl">1</span>,<span class="fl">1</span>] <span class="op">=</span> <span class="fl">1.0</span></span>
+<span id="cb6-9"><a href="#cb6-9"></a></span>
+<span id="cb6-10"><a href="#cb6-10"></a><span class="co"># `freq_res` designates the resolution used for the frequencies and velocity used in the simulation</span></span>
+<span id="cb6-11"><a href="#cb6-11"></a>freq_res <span class="op">=</span> <span class="fl">1e-1</span></span>
+<span id="cb6-12"><a href="#cb6-12"></a></span>
+<span id="cb6-13"><a href="#cb6-13"></a>p <span class="op">=</span> <span class="fu">obe</span>(ρ<span class="fl">0</span>, particle, states, lasers, d, d_m, <span class="cn">true</span>, <span class="cn">true</span>, λ, Γ, freq_res)</span>
+<span id="cb6-14"><a href="#cb6-14"></a></span>
+<span id="cb6-15"><a href="#cb6-15"></a><span class="co"># Define the end time `t_end` of the simulation</span></span>
+<span id="cb6-16"><a href="#cb6-16"></a>t_end <span class="op">=</span> <span class="fl">4</span>p.period<span class="op">+</span><span class="fl">1</span></span>
+<span id="cb6-17"><a href="#cb6-17"></a>tspan <span class="op">=</span> (<span class="fl">0</span>., t_end)</span>
+<span id="cb6-18"><a href="#cb6-18"></a></span>
+<span id="cb6-19"><a href="#cb6-19"></a>prob <span class="op">=</span> <span class="fu">ODEProblem</span>(ρ!, p.ρ<span class="fl">0</span>_vec, tspan, p) </span>
+<span id="cb6-20"><a href="#cb6-20"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="184">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1"></a><span class="pp">@time</span> sol <span class="op">=</span> DifferentialEquations.<span class="fu">solve</span>(prob, alg<span class="op">=</span><span class="fu">DP5</span>(), abstol<span class="op">=</span><span class="fl">1e-4</span>);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  0.002967 seconds (1.91 k allocations: 1.150 MiB)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="185">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb9-1"><a href="#cb9-1"></a><span class="im">using</span> <span class="bu">Plots</span></span>
+<span id="cb9-2"><a href="#cb9-2"></a>plot_us <span class="op">=</span> sol.u</span>
+<span id="cb9-3"><a href="#cb9-3"></a>plot_ts <span class="op">=</span> sol.t</span>
+<span id="cb9-4"><a href="#cb9-4"></a></span>
+<span id="cb9-5"><a href="#cb9-5"></a>n_states <span class="op">=</span> <span class="fu">size</span>(p.ρ_soa, <span class="fl">1</span>)</span>
+<span id="cb9-6"><a href="#cb9-6"></a><span class="fu">plot</span>(size<span class="op">=</span>(<span class="fl">800</span>, <span class="fl">400</span>), ylim<span class="op">=</span>(<span class="op">-</span><span class="fl">0.1</span>, <span class="fl">1.1</span>), legend<span class="op">=</span><span class="cn">nothing</span>)</span>
+<span id="cb9-7"><a href="#cb9-7"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>n_states</span>
+<span id="cb9-8"><a href="#cb9-8"></a>    state_idx <span class="op">=</span> <span class="fu">n_states*</span>(i<span class="op">-</span><span class="fl">1</span>) <span class="op">+</span> i</span>
+<span id="cb9-9"><a href="#cb9-9"></a>    <span class="fu">plot!</span>(plot_ts, [<span class="fu">real</span>(u[state_idx]) for u <span class="kw">in</span> plot_us])</span>
+<span id="cb9-10"><a href="#cb9-10"></a><span class="cf">end</span></span>
+<span id="cb9-11"><a href="#cb9-11"></a><span class="fu">plot!</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="185">
+<p><img src="F1_to_F1_cooling_files/figure-html/cell-9-output-1.svg" class="img-fluid"></p>
+</div>
+</div>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    setTimeout(function() {
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const cites = ref.parentNode.getAttribute('data-cites').split(' ');
+    tippyHover(ref, function() {
+      var popup = window.document.createElement('div');
+      cites.forEach(function(cite) {
+        var citeDiv = window.document.createElement('div');
+        citeDiv.classList.add('hanging-indent');
+        citeDiv.classList.add('csl-entry');
+        var biblioDiv = window.document.getElementById('ref-' + cite);
+        if (biblioDiv) {
+          citeDiv.innerHTML = biblioDiv.innerHTML;
+        }
+        popup.appendChild(citeDiv);
+      });
+      return popup.innerHTML;
+    });
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
