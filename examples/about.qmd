@@ -2,4 +2,4 @@
 title: "About"
 ---
 
-Rendered Jupyter notebooks for examples in `OpticalBlochEquations.jl`.
+About this site

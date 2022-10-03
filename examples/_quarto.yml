@@ -4,20 +4,20 @@ project:
 website:
   title: "OpticalBlochEquations.jl"
   sidebar:
-    style: "docked"
+    style: "floating"
     search: false
-    alignment: "center"
     contents:
       - section: "Examples"
-        alignment: "center"
         contents:
           - text: "Blue-detuned MOT for CaOH"
             file: "ipynb_sources/Blue-detuned MOT (CaOH).ipynb"
 
 format:
   html:
+    page-layout: article
     theme: cosmo
     css: styles.css
     toc: true
+    fontsize: 0.9em
 
 freeze: auto
