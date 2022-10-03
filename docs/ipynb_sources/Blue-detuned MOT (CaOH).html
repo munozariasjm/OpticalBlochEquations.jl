@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.1.251">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>OpticalBlochEquations.jl – blue-detuned-mot-(caoh</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1.6em;
+  vertical-align: middle;
+}
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { color: #008000; } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { color: #008000; font-weight: bold; } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 20,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit"
+  }
+}</script>
+
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<link rel="stylesheet" href="../styles.css">
+</head>
+
+<body class="nav-sidebar floating">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+    <div class="container-fluid d-flex justify-content-between">
+      <h1 class="quarto-secondary-nav-title">(Untitled)</h1>
+      <button type="button" class="quarto-btn-toggle btn" aria-label="Show secondary navigation">
+        <i class="bi bi-chevron-right"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="../">OpticalBlochEquations.jl</a> 
+    </div>
+      </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-expanded="true">Examples</a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-expanded="true">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../ipynb_sources/Blue-detuned MOT (CaOH).html" class="sidebar-item-text sidebar-link active">Blue-detuned MOT for CaOH</a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#simulate-force-profiles-for-a-blue-detuned-mot-for-caoh" id="toc-simulate-force-profiles-for-a-blue-detuned-mot-for-caoh" class="nav-link active" data-scroll-target="#simulate-force-profiles-for-a-blue-detuned-mot-for-caoh">Simulate force profiles for a blue-detuned MOT for CaOH</a>
+  <ul class="collapse">
+  <li><a href="#reproduce-fig.-1-from-blue-detuned-magneto-optical-trap-prl-120-083201-2018" id="toc-reproduce-fig.-1-from-blue-detuned-magneto-optical-trap-prl-120-083201-2018" class="nav-link" data-scroll-target="#reproduce-fig.-1-from-blue-detuned-magneto-optical-trap-prl-120-083201-2018">Reproduce Fig. 1 from “Blue-Detuned Magneto-Optical Trap” (PRL 120, 083201 (2018))</a></li>
+  <li><a href="#reproduce-fig.-6-from-new-j.-phys.-18-123017-2016" id="toc-reproduce-fig.-6-from-new-j.-phys.-18-123017-2016" class="nav-link" data-scroll-target="#reproduce-fig.-6-from-new-j.-phys.-18-123017-2016">Reproduce Fig. 6 from (New J. Phys. 18, 123017 (2016))</a></li>
+  <li><a href="#caoh" id="toc-caoh" class="nav-link" data-scroll-target="#caoh">CaOH</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+
+
+<section id="simulate-force-profiles-for-a-blue-detuned-mot-for-caoh" class="level1">
+<h1>Simulate force profiles for a blue-detuned MOT for CaOH</h1>
+<div class="cell" data-execution_count="1">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Revise</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="bu">QuantumStates</span>,</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">OpticalBlochEquations</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">DifferentialEquations</span>,</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">UnitsToValue</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="3">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Distributions</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>uniform_dist <span class="op">=</span> <span class="fu">Uniform</span>(<span class="fl">0</span>, <span class="fl">2</span>π)</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">sample_direction</span>(r<span class="op">=</span><span class="fl">1.0</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    θ <span class="op">=</span> <span class="fl">2</span>π <span class="op">*</span> <span class="fu">rand</span>()</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    z <span class="op">=</span> <span class="fu">rand</span>() <span class="op">*</span> <span class="fl">2</span> <span class="op">-</span> <span class="fl">1</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> (r <span class="op">*</span> <span class="fu">sqrt</span>(<span class="fl">1</span> <span class="op">-</span> z<span class="op">^</span><span class="fl">2</span>) <span class="op">*</span> <span class="fu">cos</span>(θ), r <span class="op">*</span> <span class="fu">sqrt</span>(<span class="fl">1</span> <span class="op">-</span> z<span class="op">^</span><span class="fl">2</span>) <span class="op">*</span> <span class="fu">sin</span>(θ), r <span class="op">*</span> z)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="reproduce-fig.-1-from-blue-detuned-magneto-optical-trap-prl-120-083201-2018" class="level3">
+<h3 class="anchored" data-anchor-id="reproduce-fig.-1-from-blue-detuned-magneto-optical-trap-prl-120-083201-2018">Reproduce Fig. 1 from “Blue-Detuned Magneto-Optical Trap” (PRL 120, 083201 (2018))</h3>
+<ul>
+<li>Values are from Steck notes of the 87Rb D2 line</li>
+<li>Energies are in MHz</li>
+</ul>
+<div class="cell" data-execution_count="4">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>λ <span class="op">=</span> <span class="fl">780.241209686e-9</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>Γ <span class="op">=</span> <span class="fl">2</span>π <span class="op">*</span> <span class="fl">6.065e6</span> <span class="co"># in units of MHz</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="pp">@with_unit</span> <span class="fl">87</span> <span class="st">"u"</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>k <span class="op">=</span> <span class="fl">2</span>π <span class="op">/</span> λ</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p><span class="math inline">\(5^2S_{1/2}\)</span> state</p>
+<div class="cell" data-execution_count="5">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># F = 1</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>QN_bounds <span class="op">=</span> (E <span class="op">=</span> <span class="fl">0.0</span>, F <span class="op">=</span> <span class="fl">1</span>)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>F1_lower <span class="op">=</span> <span class="fu">enumerate_states</span>(AngularMomentumState, QN_bounds)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co"># F = 2</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>QN_bounds <span class="op">=</span> (E <span class="op">=</span> <span class="fl">6.83468261090429e9</span>, F <span class="op">=</span> <span class="fl">2</span>) <span class="co"># GHz (in units of MHz)</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>F2_lower <span class="op">=</span> <span class="fu">enumerate_states</span>(AngularMomentumState, QN_bounds)</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p><span class="math inline">\(5^2P_{3/2}\)</span></p>
+<div class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>E_upper <span class="op">=</span> <span class="fl">384.2304844685e12</span> <span class="co"># THz (in units of MHz)</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co"># F = 1</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>QN_bounds <span class="op">=</span> (E <span class="op">=</span> E_upper <span class="op">-</span> <span class="fl">72.9113e6</span> <span class="op">-</span> <span class="fl">156.947e6</span>, F <span class="op">=</span> <span class="fl">1</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>F1_upper <span class="op">=</span> <span class="fu">enumerate_states</span>(AngularMomentumState, QN_bounds)</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="co"># F = 2</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>QN_bounds <span class="op">=</span> (E <span class="op">=</span> E_upper <span class="op">-</span> <span class="fl">72.9113e6</span>, F <span class="op">=</span> <span class="fl">2</span>)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>F2_upper <span class="op">=</span> <span class="fu">enumerate_states</span>(AngularMomentumState, QN_bounds)</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="7">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>ground_states <span class="op">=</span> [F1_lower; F2_lower]</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>excited_states <span class="op">=</span> [F1_upper; F2_upper]</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>states <span class="op">=</span> [ground_states; excited_states]</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="8">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> <span class="fu">zeros</span>(<span class="fu">length</span>(states), <span class="fu">length</span>(states), <span class="fl">3</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i, state) <span class="kw">in</span> <span class="fu">enumerate</span>(ground_states)</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (j, state′) <span class="kw">in</span> <span class="fu">enumerate</span>(excited_states)</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>        j <span class="op">+=</span> <span class="fu">length</span>(ground_states)</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> p <span class="kw">in</span> <span class="op">-</span><span class="fl">1</span><span class="op">:</span><span class="fl">1</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>            tdm <span class="op">=</span> <span class="fu">TDM</span>(state, state′, p)</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>            d[i,j,p<span class="op">+</span><span class="fl">2</span>] <span class="op">=</span> tdm</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>            <span class="co"># d[j,i,p+2] = conj(tdm)</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Magnetic moments in units of MHz/G</span></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a><span class="co"># For now, only assuming a field along the z axis</span></span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>d_m <span class="op">=</span> <span class="fu">zeros</span>(<span class="fu">length</span>(states), <span class="fu">length</span>(states), <span class="fl">3</span>)</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i, state) <span class="kw">in</span> <span class="fu">enumerate</span>(states)</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (j, state′) <span class="kw">in</span> <span class="fu">enumerate</span>(states)</span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> p <span class="op">∈</span> <span class="op">-</span><span class="fl">1</span><span class="op">:</span><span class="fl">1</span></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> j <span class="op">&gt;</span> i</span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>                d_m[i,j,p<span class="op">+</span><span class="fl">2</span>] <span class="op">+=</span> <span class="fu">TDM_magnetic</span>(state, state′, p) <span class="op">*</span> (state.E <span class="op">==</span> state′.E)</span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>                d_m[i,j,p<span class="op">+</span><span class="fl">2</span>] <span class="op">+=</span> <span class="fu">TDM_magnetic</span>(state′, state, p) <span class="op">*</span> (state.E <span class="op">==</span> state′.E)</span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>            <span class="cf">elseif</span> i <span class="op">==</span> j</span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>                d_m[i,j,p<span class="op">+</span><span class="fl">2</span>] <span class="op">+=</span> <span class="fu">TDM_magnetic</span>(state, state′, p) <span class="op">*</span> (state.E <span class="op">==</span> state′.E)</span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>            <span class="cf">end</span></span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>d_m[<span class="fl">1</span><span class="op">:</span><span class="fl">3</span>,<span class="fl">1</span><span class="op">:</span><span class="fl">3</span>,<span class="op">:</span>]     <span class="op">.*=</span> (<span class="op">-</span><span class="fl">1</span><span class="op">/</span><span class="fl">2</span>)</span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>d_m[<span class="fl">4</span><span class="op">:</span><span class="fl">8</span>,<span class="fl">4</span><span class="op">:</span><span class="fl">8</span>,<span class="op">:</span>]     <span class="op">.*=</span> ( <span class="fl">1</span><span class="op">/</span><span class="fl">2</span>)</span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>d_m[<span class="fl">9</span><span class="op">:</span><span class="fl">11</span>,<span class="fl">9</span><span class="op">:</span><span class="fl">11</span>,<span class="op">:</span>]   <span class="op">.*=</span> (<span class="fl">2</span><span class="op">/</span><span class="fl">3</span>)</span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>d_m[<span class="fl">12</span><span class="op">:</span><span class="fl">16</span>,<span class="fl">12</span><span class="op">:</span><span class="fl">16</span>,<span class="op">:</span>] <span class="op">.*=</span> (<span class="fl">2</span><span class="op">/</span><span class="fl">3</span>)</span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a><span class="co"># d_m ./= (Γ / (μB * 1e6))</span></span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-tags="[]" data-execution_count="9">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Laser parameters</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>δf11 <span class="op">=</span> <span class="op">+</span><span class="fl">11.5e6</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>δf22 <span class="op">=</span> <span class="op">+</span><span class="fl">26.0e6</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>θ₁ <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>θ₂ <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>Isat <span class="op">=</span> <span class="fl">2.503</span></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>s <span class="op">=</span> (<span class="fl">113</span> <span class="op">/</span> Isat) <span class="op">/</span> <span class="fl">12</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a><span class="co"># pol = σ⁻</span></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>pol <span class="op">=</span> σ⁺</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Create MOT beams for F=1 -&gt; F'=1 transition</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>ω_F1_to_F1 <span class="op">=</span> <span class="fl">2</span>π <span class="op">*</span> (F1_upper[<span class="fl">1</span>].E <span class="op">-</span> F1_lower[<span class="fl">1</span>].E <span class="op">+</span> δf11)</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>k̂ <span class="op">=</span> <span class="op">+</span>x̂</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">exp</span>(<span class="cn">im</span> <span class="op">*</span> θ₁) <span class="op">*</span> <span class="fu">rotate_pol</span>(pol, k̂)</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>laser1 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>k̂ <span class="op">=</span> <span class="op">-</span>x̂</span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">exp</span>(<span class="cn">im</span> <span class="op">*</span> θ₁) <span class="op">*</span> <span class="fu">rotate_pol</span>(pol, k̂)</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>laser2 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>k̂ <span class="op">=</span> <span class="op">+</span>ŷ</span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">exp</span>(<span class="cn">im</span> <span class="op">*</span> θ₂) <span class="op">*</span> <span class="fu">rotate_pol</span>(pol, k̂)</span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>laser3 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>k̂ <span class="op">=</span> <span class="op">-</span>ŷ</span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">exp</span>(<span class="cn">im</span> <span class="op">*</span> θ₂) <span class="op">*</span> <span class="fu">rotate_pol</span>(pol, k̂)</span>
+<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a>laser4 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-32"><a href="#cb9-32" aria-hidden="true" tabindex="-1"></a>k̂ <span class="op">=</span> <span class="op">+</span>ẑ</span>
+<span id="cb9-33"><a href="#cb9-33" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(pol, k̂)</span>
+<span id="cb9-34"><a href="#cb9-34" aria-hidden="true" tabindex="-1"></a>laser5 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb9-35"><a href="#cb9-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-36"><a href="#cb9-36" aria-hidden="true" tabindex="-1"></a>k̂ <span class="op">=</span> <span class="op">-</span>ẑ</span>
+<span id="cb9-37"><a href="#cb9-37" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(pol, k̂)</span>
+<span id="cb9-38"><a href="#cb9-38" aria-hidden="true" tabindex="-1"></a>laser6 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb9-39"><a href="#cb9-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-40"><a href="#cb9-40" aria-hidden="true" tabindex="-1"></a><span class="co"># Create MOT beams for F=2 -&gt; F'=2 transition</span></span>
+<span id="cb9-41"><a href="#cb9-41" aria-hidden="true" tabindex="-1"></a>ω_F2_to_F2 <span class="op">=</span> <span class="fl">2</span>π <span class="op">*</span> (F2_upper[<span class="fl">1</span>].E <span class="op">-</span> F2_lower[<span class="fl">1</span>].E <span class="op">+</span> δf22)</span>
+<span id="cb9-42"><a href="#cb9-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-43"><a href="#cb9-43" aria-hidden="true" tabindex="-1"></a>k̂ <span class="op">=</span> <span class="op">+</span>x̂</span>
+<span id="cb9-44"><a href="#cb9-44" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">exp</span>(<span class="cn">im</span> <span class="op">*</span> θ₁) <span class="op">*</span> <span class="fu">rotate_pol</span>(pol, k̂)</span>
+<span id="cb9-45"><a href="#cb9-45" aria-hidden="true" tabindex="-1"></a>laser7 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F2_to_F2, s)</span>
+<span id="cb9-46"><a href="#cb9-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-47"><a href="#cb9-47" aria-hidden="true" tabindex="-1"></a>k̂ <span class="op">=</span> <span class="op">-</span>x̂</span>
+<span id="cb9-48"><a href="#cb9-48" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">exp</span>(<span class="cn">im</span> <span class="op">*</span> θ₁) <span class="op">*</span> <span class="fu">rotate_pol</span>(pol, k̂)</span>
+<span id="cb9-49"><a href="#cb9-49" aria-hidden="true" tabindex="-1"></a>laser8 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F2_to_F2, s)</span>
+<span id="cb9-50"><a href="#cb9-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-51"><a href="#cb9-51" aria-hidden="true" tabindex="-1"></a>k̂ <span class="op">=</span> <span class="op">+</span>ŷ</span>
+<span id="cb9-52"><a href="#cb9-52" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">exp</span>(<span class="cn">im</span> <span class="op">*</span> θ₂) <span class="op">*</span> <span class="fu">rotate_pol</span>(pol, k̂)</span>
+<span id="cb9-53"><a href="#cb9-53" aria-hidden="true" tabindex="-1"></a>laser9 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F2_to_F2, s)</span>
+<span id="cb9-54"><a href="#cb9-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-55"><a href="#cb9-55" aria-hidden="true" tabindex="-1"></a>k̂ <span class="op">=</span> <span class="op">-</span>ŷ</span>
+<span id="cb9-56"><a href="#cb9-56" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">exp</span>(<span class="cn">im</span> <span class="op">*</span> θ₂) <span class="op">*</span> <span class="fu">rotate_pol</span>(pol, k̂)</span>
+<span id="cb9-57"><a href="#cb9-57" aria-hidden="true" tabindex="-1"></a>laser10 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F2_to_F2, s)</span>
+<span id="cb9-58"><a href="#cb9-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-59"><a href="#cb9-59" aria-hidden="true" tabindex="-1"></a>k̂ <span class="op">=</span> <span class="op">+</span>ẑ</span>
+<span id="cb9-60"><a href="#cb9-60" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(pol, k̂)</span>
+<span id="cb9-61"><a href="#cb9-61" aria-hidden="true" tabindex="-1"></a>laser11 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F2_to_F2, s)</span>
+<span id="cb9-62"><a href="#cb9-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-63"><a href="#cb9-63" aria-hidden="true" tabindex="-1"></a>k̂ <span class="op">=</span> <span class="op">-</span>ẑ</span>
+<span id="cb9-64"><a href="#cb9-64" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(pol, k̂)</span>
+<span id="cb9-65"><a href="#cb9-65" aria-hidden="true" tabindex="-1"></a>laser12 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F2_to_F2, s)</span>
+<span id="cb9-66"><a href="#cb9-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-67"><a href="#cb9-67" aria-hidden="true" tabindex="-1"></a>lasers <span class="op">=</span> [laser1, laser2, laser3, laser4, laser5, laser6, laser7, laser8, laser9, laser10, laser11, laser12]</span>
+<span id="cb9-68"><a href="#cb9-68" aria-hidden="true" tabindex="-1"></a><span class="co"># lasers = [laser5, laser6, laser11, laser12] # only z beams</span></span>
+<span id="cb9-69"><a href="#cb9-69" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="10">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>freq_res <span class="op">=</span> <span class="fl">1e-1</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>ω_min <span class="op">=</span> freq_res</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>period <span class="op">=</span> <span class="fl">2</span>π <span class="op">/</span> ω_min</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>ρ<span class="fl">0</span> <span class="op">=</span> <span class="fu">zeros</span>(<span class="dt">ComplexF64</span>, <span class="fu">length</span>(states), <span class="fu">length</span>(states))</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>ρ<span class="fl">0</span>[<span class="fl">3</span>,<span class="fl">3</span>] <span class="op">=</span> <span class="fl">1.0</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>particle <span class="op">=</span> <span class="fu">Particle</span>()</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>particle.r0 <span class="op">=</span> [<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>] </span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>particle.v <span class="op">=</span> [<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.1</span>] <span class="co">#5 .* sample_direction() #[0.0, 0.0, 0.5] # velocity is in m/s (divided by Γ/k for the simulation)</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>p <span class="op">=</span> <span class="fu">obe</span>(ρ<span class="fl">0</span>, particle, states, lasers, d, d_m, <span class="cn">true</span>, <span class="cn">true</span>, λ, Γ, freq_res)</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>p.B <span class="op">=</span> (<span class="fl">0</span>., <span class="fl">0</span>., <span class="fl">5</span>.) <span class="op">./</span> (Γ <span class="op">/</span> (_μB <span class="op">*</span> <span class="fl">1e6</span>))</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-error">
+<pre><code>LoadError: UndefVarError: _μB not defined</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="11">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># using BenchmarkTools</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="co"># @btime ρ!(dρ, ρ0, p, 0.0)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="12">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>t_end <span class="op">=</span> <span class="fl">20</span>p.period</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>tspan <span class="op">=</span> (<span class="fl">0</span>., t_end)</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>step_size <span class="op">=</span> <span class="fl">1e-3</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>n_periods <span class="op">=</span> <span class="fl">2</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>times <span class="op">=</span> <span class="fu">range</span>(t_end <span class="op">-</span> n_periods <span class="op">*</span> p.period, t_end, step<span class="op">=</span>p.period <span class="op">*</span> step_size)</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>prob <span class="op">=</span> <span class="fu">ODEProblem</span>(ρ!, p.ρ<span class="fl">0</span>_vec, tspan, p, reltol<span class="op">=</span><span class="fl">1e-5</span>) <span class="co"># callback=AutoAbstol(false, init_curmax=0.0)) # what does this do?</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="13">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@time</span> sol <span class="op">=</span> DifferentialEquations.<span class="fu">solve</span>(prob, alg<span class="op">=</span><span class="fu">DP5</span>(), abstol<span class="op">=</span><span class="fl">1e-5</span>);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> 21.067959 seconds (35.42 M allocations: 4.191 GiB, 2.08% gc time, 96.56% compilation time)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="17">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Plots</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>plot_us <span class="op">=</span> sol.u</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>plot_ts <span class="op">=</span> sol.t</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>n_states <span class="op">=</span> <span class="fu">size</span>(p.ρ_soa, <span class="fl">1</span>)</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(size<span class="op">=</span>(<span class="fl">800</span>, <span class="fl">400</span>), ylim<span class="op">=</span>(<span class="op">-</span><span class="fl">0.1</span>, <span class="fl">1.1</span>), legend<span class="op">=</span><span class="cn">nothing</span>)</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>n_states</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>    state_idx <span class="op">=</span> <span class="fu">n_states*</span>(i<span class="op">-</span><span class="fl">1</span>) <span class="op">+</span> i</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">plot!</span>(plot_ts, [<span class="fu">real</span>(u[state_idx]) for u <span class="kw">in</span> plot_us])</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a><span class="fu">plot!</span>()</span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>offset <span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a><span class="fu">vline!</span>([sol.t[<span class="kw">end</span>] <span class="op">-</span> p.period <span class="op">-</span> offset, sol.t[<span class="kw">end</span>] <span class="op">-</span> offset], color<span class="op">=</span><span class="st">"red"</span>, linestyle<span class="op">=:</span>dash)</span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a><span class="co"># vline!([280, 380], color="red", linestyle=:dash)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="17">
+<p><img src="Blue-detuned%20MOT%20(CaOH)_files/figure-html/cell-15-output-1.svg" class="img-fluid"></p>
+</div>
+</div>
+<div class="cell" data-execution_count="15">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>sol.u[<span class="kw">end</span>][<span class="kw">end</span><span class="op">-</span><span class="fl">2</span><span class="op">:</span><span class="kw">end</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="15">
+<pre><code>3-element Vector{ComplexF64}:
+   1.9700131428947971 + 0.0im
+ -0.06391252360445562 + 0.0im
+   0.5584231316344115 + 0.0im</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="16">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Statistics</span>, <span class="bu">LinearAlgebra</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>offset <span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>period_idx <span class="op">=</span> <span class="fu">find_idx_for_time</span>(p.period, sol.t, <span class="cn">true</span>)</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>force_idxs <span class="op">=</span> <span class="fu">Int</span>(<span class="fu">length</span>(sol.t) <span class="op">-</span> <span class="fl">1</span><span class="op">/</span>step_size <span class="op">-</span> offset)<span class="op">:</span>(<span class="fu">length</span>(sol.t) <span class="op">-</span> offset) <span class="co"># (period_idx - offset):(length(times) - offset)</span></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a><span class="pp">@time</span> F <span class="op">=</span> <span class="fu">calculate_force_from_period</span>(p, sol; force_idxs)</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Excited population: "</span>, <span class="fu">real</span>(<span class="fu">sum</span>(<span class="fu">diag</span>(<span class="fu">mean</span>(sol.u[force_idxs]))[<span class="fl">9</span><span class="op">:</span><span class="kw">end</span>])))</span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Force: "</span>, <span class="fl">1e3</span> <span class="op">.*</span> F) <span class="co">#sign.(force) .* abs(force ⋅ p.particle.v) / norm(p.particle.v))</span></span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Acceleration (10^3 m/s^2): "</span>, <span class="fl">1e-3</span> <span class="op">*</span> QuantumStates.ħ <span class="op">*</span> p.k <span class="op">*</span> Γ <span class="op">*</span> F[<span class="fl">3</span>] <span class="op">/</span> m)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  0.247017 seconds (709.97 k allocations: 35.210 MiB, 7.05% gc time, 98.87% compilation time)</code></pre>
+</div>
+<div class="cell-output cell-output-error">
+<pre><code>LoadError: ArgumentError: use diagm instead of diag to construct a diagonal matrix</code></pre>
+</div>
+</div>
+<section id="force-versus-velocity" class="level4">
+<h4 class="anchored" data-anchor-id="force-versus-velocity">Force versus velocity</h4>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">prob_func!</span>(p, scan_values, i)</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Update velocity and position</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>    p.v <span class="op">.=</span> <span class="fu">sample_direction</span>(scan_values.v[i])</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>    p.v <span class="op">.=</span> <span class="fu">round_vel</span>(p.v, p.freq_res)    </span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>    p.r0 <span class="op">.=</span> <span class="fu">rand</span>(uniform_dist, <span class="fl">3</span>) <span class="op">.*</span> <span class="fl">2</span>π</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="cn">nothing</span></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">param_func</span>(p, scan_values, i)</span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> scan_values.v[i]</span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">output_func</span>(p, sol)</span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>    f <span class="op">=</span> <span class="fu">real</span>.(sol[<span class="kw">end</span>][<span class="kw">end</span><span class="op">-</span><span class="fl">2</span><span class="op">:</span><span class="kw">end</span>])</span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> (f <span class="op">⋅</span> p.v) <span class="op">/</span> <span class="fu">norm</span>(p.v)</span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>prob <span class="op">=</span> <span class="fu">ODEProblem</span>(ρ!, p.ρ<span class="fl">0</span>_vec, tspan, p, save_on<span class="op">=</span><span class="cn">false</span>) </span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>p.freq_res <span class="op">=</span> <span class="fl">1e-2</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>prob.p.B <span class="op">.=</span> (<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>)</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>vs <span class="op">=</span> <span class="fu">repeat</span>([[<span class="fl">0</span>,<span class="fl">1</span>,<span class="fl">2</span>,<span class="fl">3</span>,<span class="fl">4</span>]; <span class="fu">collect</span>(<span class="fl">5</span><span class="op">:</span><span class="fl">5</span><span class="op">:</span><span class="fl">40</span>)], <span class="fl">50</span>) <span class="op">./</span> (Γ <span class="op">/</span> k)</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>scan_values <span class="op">=</span> (v <span class="op">=</span> vs,)</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@time</span> scan_params, forces <span class="op">=</span> <span class="fu">force_scan</span>(prob, scan_values, prob_func!, param_func, output_func; n_threads<span class="op">=</span><span class="fl">20</span>);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>vs, averaged_forces <span class="op">=</span> <span class="fu">average_forces</span>(scan_params, forces)</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>averaged_forces[<span class="fl">1</span>] <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(vs <span class="op">.*</span> (Γ <span class="op">/</span> k), (<span class="fl">1e-3</span> <span class="op">*</span> ħ <span class="op">*</span> k <span class="op">*</span> Γ <span class="op">/</span> m) <span class="op">.*</span> averaged_forces <span class="op">/</span> t_end, legend<span class="op">=</span><span class="cn">nothing</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="force-versus-magnetic-field" class="level4">
+<h4 class="anchored" data-anchor-id="force-versus-magnetic-field">Force versus magnetic field</h4>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">prob_func!</span>(p, scan_values, i)</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Update velocity and position</span></span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>    p.v <span class="op">.=</span> <span class="fu">sample_direction</span>(scan_values.vs[i])</span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>    p.r0 <span class="op">.=</span> <span class="fu">rand</span>(uniform_dist, <span class="fl">3</span>) <span class="op">.*</span> <span class="fl">2</span>π</span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Round `v` to ensure that the OBEs are periodic</span></span>
+<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>    p.v <span class="op">.=</span> <span class="fu">round_vel</span>(p.v, p.freq_res)</span>
+<span id="cb26-7"><a href="#cb26-7" aria-hidden="true" tabindex="-1"></a>    p.B <span class="op">.=</span> (<span class="fl">0.0</span>, <span class="fl">0.0</span>, scan_values.Bz[i])</span>
+<span id="cb26-8"><a href="#cb26-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="cn">nothing</span></span>
+<span id="cb26-9"><a href="#cb26-9" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb26-10"><a href="#cb26-10" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">param_func</span>(p, scan_values, i)</span>
+<span id="cb26-11"><a href="#cb26-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> p.B[<span class="fl">3</span>]</span>
+<span id="cb26-12"><a href="#cb26-12" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb26-13"><a href="#cb26-13" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">output_func</span>(p, sol)</span>
+<span id="cb26-14"><a href="#cb26-14" aria-hidden="true" tabindex="-1"></a>    f <span class="op">=</span> <span class="fu">real</span>.(sol[<span class="kw">end</span>][<span class="kw">end</span><span class="op">-</span><span class="fl">2</span><span class="op">:</span><span class="kw">end</span>])</span>
+<span id="cb26-15"><a href="#cb26-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> f[<span class="fl">3</span>] <span class="co">#(f ⋅ p.v) / norm(p.v)</span></span>
+<span id="cb26-16"><a href="#cb26-16" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb26-17"><a href="#cb26-17" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>p <span class="op">=</span> <span class="fu">obe</span>(ρ<span class="fl">0</span>, particle, states, lasers, d, d_m, <span class="cn">true</span>, <span class="cn">true</span>, λ, Γ, freq_res)</span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>prob <span class="op">=</span> <span class="fu">ODEProblem</span>(ρ!, p.ρ<span class="fl">0</span>_vec, tspan, p, reltol<span class="op">=</span><span class="fl">1e-5</span>, save_on<span class="op">=</span><span class="cn">false</span>)</span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>n_samples <span class="op">=</span> <span class="fl">50</span></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>Bzs <span class="op">=</span> (<span class="fl">0</span><span class="op">:</span><span class="fl">5</span><span class="op">:</span><span class="fl">100.0</span>) <span class="op">./</span> (Γ <span class="op">/</span> (_μB <span class="op">*</span> <span class="fl">1e6</span>))</span>
+<span id="cb27-7"><a href="#cb27-7" aria-hidden="true" tabindex="-1"></a>vs  <span class="op">=</span> <span class="fl">0.1</span> <span class="op">.*</span> <span class="fu">ones</span>(<span class="fu">length</span>(Bzs))</span>
+<span id="cb27-8"><a href="#cb27-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-9"><a href="#cb27-9" aria-hidden="true" tabindex="-1"></a>scan_values <span class="op">=</span> (Bz <span class="op">=</span> <span class="fu">repeat</span>(Bzs, n_samples), vs <span class="op">=</span> <span class="fu">repeat</span>(vs, n_samples))</span>
+<span id="cb27-10"><a href="#cb27-10" aria-hidden="true" tabindex="-1"></a><span class="pp">@time</span> scan_params, forces <span class="op">=</span> <span class="fu">force_scan</span>(prob, scan_values, prob_func!, param_func, output_func);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a>Bzs, averaged_forces <span class="op">=</span> <span class="fu">average_forces</span>(scan_params, forces)</span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(Bzs, <span class="fl">1e3</span> <span class="op">*</span> averaged_forces, legend<span class="op">=</span><span class="cn">nothing</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+</section>
+<section id="reproduce-fig.-6-from-new-j.-phys.-18-123017-2016" class="level3">
+<h3 class="anchored" data-anchor-id="reproduce-fig.-6-from-new-j.-phys.-18-123017-2016">Reproduce Fig. 6 from (New J. Phys. 18, 123017 (2016))</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>λ <span class="op">=</span> <span class="fl">1</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>Γ <span class="op">=</span> <span class="fl">2</span>π</span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="fl">1</span></span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>k_norm <span class="op">=</span> <span class="fl">2</span>π <span class="op">/</span> λ</span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="co"># F = 1</span></span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>QN_bounds <span class="op">=</span> (E <span class="op">=</span> <span class="fl">0.0</span>, F <span class="op">=</span> <span class="fl">1</span>)</span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>F1_lower <span class="op">=</span> <span class="fu">enumerate_states</span>(AngularMomentumState, QN_bounds)</span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>QN_bounds <span class="op">=</span> (E <span class="op">=</span> <span class="fl">1.0</span>, F <span class="op">=</span> <span class="fl">1</span>)</span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a>F1_upper <span class="op">=</span> <span class="fu">enumerate_states</span>(AngularMomentumState, QN_bounds)</span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a>ground_states <span class="op">=</span> F1_lower</span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>excited_states <span class="op">=</span> F1_upper</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>states <span class="op">=</span> [ground_states; excited_states]</span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> <span class="fu">zeros</span>(<span class="fu">length</span>(states), <span class="fu">length</span>(states), <span class="fl">3</span>)</span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i, state) <span class="kw">in</span> <span class="fu">enumerate</span>(ground_states)</span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (j, state′) <span class="kw">in</span> <span class="fu">enumerate</span>(excited_states)</span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>        j <span class="op">+=</span> <span class="fu">length</span>(ground_states)</span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> p <span class="kw">in</span> <span class="op">-</span><span class="fl">1</span><span class="op">:</span><span class="fl">1</span></span>
+<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a>            tdm <span class="op">=</span> <span class="fu">TDM</span>(state, state′, p)</span>
+<span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a>            d[i,j,p<span class="op">+</span><span class="fl">2</span>] <span class="op">=</span> tdm</span>
+<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a>            d[j,i,p<span class="op">+</span><span class="fl">2</span>] <span class="op">=</span> <span class="fu">conj</span>(tdm)</span>
+<span id="cb32-9"><a href="#cb32-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb32-10"><a href="#cb32-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb32-11"><a href="#cb32-11" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb32-12"><a href="#cb32-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-13"><a href="#cb32-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Magnetic moments in units of MHz/G</span></span>
+<span id="cb32-14"><a href="#cb32-14" aria-hidden="true" tabindex="-1"></a><span class="co"># For now, only assuming a field along the z axis</span></span>
+<span id="cb32-15"><a href="#cb32-15" aria-hidden="true" tabindex="-1"></a>d_m <span class="op">=</span> <span class="fu">zeros</span>(<span class="fu">length</span>(states), <span class="fu">length</span>(states), <span class="fl">3</span>)</span>
+<span id="cb32-16"><a href="#cb32-16" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (i, state) <span class="kw">in</span> <span class="fu">enumerate</span>(states)</span>
+<span id="cb32-17"><a href="#cb32-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> (j, state′) <span class="kw">in</span> <span class="fu">enumerate</span>(states)</span>
+<span id="cb32-18"><a href="#cb32-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> p <span class="op">∈</span> <span class="op">-</span><span class="fl">1</span><span class="op">:</span><span class="fl">1</span></span>
+<span id="cb32-19"><a href="#cb32-19" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> j <span class="op">&gt;</span> i</span>
+<span id="cb32-20"><a href="#cb32-20" aria-hidden="true" tabindex="-1"></a>                d_m[i,j,p<span class="op">+</span><span class="fl">2</span>] <span class="op">+=</span> <span class="fu">TDM_magnetic</span>(state, state′, p) <span class="op">*</span> (state.E <span class="op">==</span> state′.E)</span>
+<span id="cb32-21"><a href="#cb32-21" aria-hidden="true" tabindex="-1"></a>                d_m[i,j,p<span class="op">+</span><span class="fl">2</span>] <span class="op">+=</span> <span class="fu">TDM_magnetic</span>(state′, state, p) <span class="op">*</span> (state.E <span class="op">==</span> state′.E)</span>
+<span id="cb32-22"><a href="#cb32-22" aria-hidden="true" tabindex="-1"></a>            <span class="cf">elseif</span> i <span class="op">==</span> j</span>
+<span id="cb32-23"><a href="#cb32-23" aria-hidden="true" tabindex="-1"></a>                d_m[i,j,p<span class="op">+</span><span class="fl">2</span>] <span class="op">+=</span> <span class="fu">TDM_magnetic</span>(state, state′, p) <span class="op">*</span> (state.E <span class="op">==</span> state′.E)</span>
+<span id="cb32-24"><a href="#cb32-24" aria-hidden="true" tabindex="-1"></a>            <span class="cf">end</span></span>
+<span id="cb32-25"><a href="#cb32-25" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb32-26"><a href="#cb32-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb32-27"><a href="#cb32-27" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb32-28"><a href="#cb32-28" aria-hidden="true" tabindex="-1"></a><span class="co"># d_m .+= permutedims(d_m, (2,1,3))</span></span>
+<span id="cb32-29"><a href="#cb32-29" aria-hidden="true" tabindex="-1"></a><span class="co"># d_m ./= (Γ / μB) # There's a 2π factor here too but it's included in the simulation code</span></span>
+<span id="cb32-30"><a href="#cb32-30" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-tags="[]">
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Laser parameters</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>Δ <span class="op">=</span> <span class="op">-</span><span class="fl">2.5</span>Γ</span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>s <span class="op">=</span> <span class="fl">1.0</span></span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a>θ₁ <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a>θ₂ <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb33-6"><a href="#cb33-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-7"><a href="#cb33-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Create MOT beams for F=1 -&gt; F'=1 transition</span></span>
+<span id="cb33-8"><a href="#cb33-8" aria-hidden="true" tabindex="-1"></a>ω_F1_to_F1 <span class="op">=</span> <span class="fl">2</span>π <span class="op">*</span> (F1_upper[<span class="fl">1</span>].E <span class="op">-</span> F1_lower[<span class="fl">1</span>].E) <span class="op">+</span> Δ</span>
+<span id="cb33-9"><a href="#cb33-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-10"><a href="#cb33-10" aria-hidden="true" tabindex="-1"></a>k <span class="op">=</span> <span class="op">+</span>x̂</span>
+<span id="cb33-11"><a href="#cb33-11" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">exp</span>(<span class="cn">im</span> <span class="op">*</span> θ₁) <span class="op">*</span> <span class="fu">rotate_pol</span>(σ⁺, k)</span>
+<span id="cb33-12"><a href="#cb33-12" aria-hidden="true" tabindex="-1"></a>laser1 <span class="op">=</span> <span class="fu">Laser</span>(k, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb33-13"><a href="#cb33-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-14"><a href="#cb33-14" aria-hidden="true" tabindex="-1"></a>k <span class="op">=</span> <span class="op">-</span>x̂</span>
+<span id="cb33-15"><a href="#cb33-15" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">exp</span>(<span class="cn">im</span> <span class="op">*</span> θ₁) <span class="op">*</span> <span class="fu">rotate_pol</span>(σ⁺, k)</span>
+<span id="cb33-16"><a href="#cb33-16" aria-hidden="true" tabindex="-1"></a>laser2 <span class="op">=</span> <span class="fu">Laser</span>(k, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb33-17"><a href="#cb33-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-18"><a href="#cb33-18" aria-hidden="true" tabindex="-1"></a>k <span class="op">=</span> <span class="op">+</span>ŷ</span>
+<span id="cb33-19"><a href="#cb33-19" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">exp</span>(<span class="cn">im</span> <span class="op">*</span> θ₂) <span class="op">*</span> <span class="fu">rotate_pol</span>(σ⁺, k)</span>
+<span id="cb33-20"><a href="#cb33-20" aria-hidden="true" tabindex="-1"></a>laser3 <span class="op">=</span> <span class="fu">Laser</span>(k, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb33-21"><a href="#cb33-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-22"><a href="#cb33-22" aria-hidden="true" tabindex="-1"></a>k <span class="op">=</span> <span class="op">-</span>ŷ</span>
+<span id="cb33-23"><a href="#cb33-23" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">exp</span>(<span class="cn">im</span> <span class="op">*</span> θ₂) <span class="op">*</span> <span class="fu">rotate_pol</span>(σ⁺, k)</span>
+<span id="cb33-24"><a href="#cb33-24" aria-hidden="true" tabindex="-1"></a>laser4 <span class="op">=</span> <span class="fu">Laser</span>(k, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb33-25"><a href="#cb33-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-26"><a href="#cb33-26" aria-hidden="true" tabindex="-1"></a>k <span class="op">=</span> <span class="op">+</span>ẑ</span>
+<span id="cb33-27"><a href="#cb33-27" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(σ⁺, k)</span>
+<span id="cb33-28"><a href="#cb33-28" aria-hidden="true" tabindex="-1"></a>laser5 <span class="op">=</span> <span class="fu">Laser</span>(k, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb33-29"><a href="#cb33-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-30"><a href="#cb33-30" aria-hidden="true" tabindex="-1"></a>k <span class="op">=</span> <span class="op">-</span>ẑ</span>
+<span id="cb33-31"><a href="#cb33-31" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(σ⁺, k)</span>
+<span id="cb33-32"><a href="#cb33-32" aria-hidden="true" tabindex="-1"></a>laser6 <span class="op">=</span> <span class="fu">Laser</span>(k, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb33-33"><a href="#cb33-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb33-34"><a href="#cb33-34" aria-hidden="true" tabindex="-1"></a>lasers <span class="op">=</span> [laser1, laser2, laser3, laser4, laser5, laser6]</span>
+<span id="cb33-35"><a href="#cb33-35" aria-hidden="true" tabindex="-1"></a><span class="co"># lasers = [laser1, laser2]</span></span>
+<span id="cb33-36"><a href="#cb33-36" aria-hidden="true" tabindex="-1"></a><span class="co"># lasers = [laser3, laser4]</span></span>
+<span id="cb33-37"><a href="#cb33-37" aria-hidden="true" tabindex="-1"></a><span class="co"># lasers = [laser5, laser6]</span></span>
+<span id="cb33-38"><a href="#cb33-38" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a>freq_res <span class="op">=</span> <span class="fl">1e-1</span></span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>ω_min <span class="op">=</span> freq_res</span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>period <span class="op">=</span> <span class="fl">2</span>π <span class="op">/</span> ω_min</span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a>ρ<span class="fl">0</span> <span class="op">=</span> <span class="fu">zeros</span>(<span class="dt">ComplexF64</span>, <span class="fu">length</span>(states), <span class="fu">length</span>(states))</span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a>ρ<span class="fl">0</span>[<span class="fl">2</span>,<span class="fl">2</span>] <span class="op">=</span> <span class="fl">1.0</span></span>
+<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a>particle <span class="op">=</span> <span class="fu">Particle</span>()</span>
+<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a>particle.r0 <span class="op">=</span> [<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>] <span class="co"># ./ k_norm</span></span>
+<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a>particle.v <span class="op">=</span> [<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.1</span>] <span class="co">#.* (Γ / k_norm)</span></span>
+<span id="cb34-11"><a href="#cb34-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-12"><a href="#cb34-12" aria-hidden="true" tabindex="-1"></a>p <span class="op">=</span> <span class="fu">obe</span>(ρ<span class="fl">0</span>, particle, states, lasers, d, d_m, <span class="cn">true</span>, <span class="cn">true</span>, λ, Γ, freq_res)</span>
+<span id="cb34-13"><a href="#cb34-13" aria-hidden="true" tabindex="-1"></a>p.B <span class="op">.=</span> (<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">25.0</span>) <span class="op">./</span> (Γ <span class="op">/</span> (_μB <span class="op">*</span> <span class="fl">1e6</span>))</span>
+<span id="cb34-14"><a href="#cb34-14" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="co"># using BenchmarkTools</span></span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a><span class="co"># dρ = deepcopy(ρ0)</span></span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a><span class="co"># @btime ρ!(dρ, ρ0, p, 0.0)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a>t_end <span class="op">=</span> <span class="fl">4</span>period</span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>tspan <span class="op">=</span> (<span class="fl">0</span>., t_end)</span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>times <span class="op">=</span> <span class="fu">range</span>(<span class="fl">0</span>, t_end, step<span class="op">=</span>period<span class="op">/</span><span class="fl">1000</span>)</span>
+<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a><span class="co"># times = range(t_end - 3p.period, t_end, step=period/1000)</span></span>
+<span id="cb36-5"><a href="#cb36-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb36-6"><a href="#cb36-6" aria-hidden="true" tabindex="-1"></a>prob <span class="op">=</span> <span class="fu">ODEProblem</span>(ρ!, p.ρ<span class="fl">0</span>_vec, tspan, p, saveat<span class="op">=</span>times)<span class="co">#, callback=AutoAbstol(false, init_curmax=0.0)) # what does this do?</span></span>
+<span id="cb36-7"><a href="#cb36-7" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@time</span> sol <span class="op">=</span> DifferentialEquations.<span class="fu">solve</span>(prob, alg<span class="op">=</span><span class="fu">DP5</span>(), abstol<span class="op">=</span><span class="fl">1e-4</span>);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Plots</span></span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a>plot_us <span class="op">=</span> sol.u</span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a>plot_ts <span class="op">=</span> sol.t</span>
+<span id="cb38-4"><a href="#cb38-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb38-5"><a href="#cb38-5" aria-hidden="true" tabindex="-1"></a>n_states <span class="op">=</span> <span class="fu">size</span>(p.ρ_soa, <span class="fl">1</span>)</span>
+<span id="cb38-6"><a href="#cb38-6" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(size<span class="op">=</span>(<span class="fl">800</span>, <span class="fl">400</span>), ylim<span class="op">=</span>(<span class="op">-</span><span class="fl">0.1</span>, <span class="fl">1.1</span>), legend<span class="op">=</span><span class="cn">nothing</span>)</span>
+<span id="cb38-7"><a href="#cb38-7" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>n_states</span>
+<span id="cb38-8"><a href="#cb38-8" aria-hidden="true" tabindex="-1"></a>    state_idx <span class="op">=</span> <span class="fu">n_states*</span>(i<span class="op">-</span><span class="fl">1</span>) <span class="op">+</span> i</span>
+<span id="cb38-9"><a href="#cb38-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">plot!</span>(plot_ts, [<span class="fu">real</span>(u[state_idx]) for u <span class="kw">in</span> plot_us])</span>
+<span id="cb38-10"><a href="#cb38-10" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb38-11"><a href="#cb38-11" aria-hidden="true" tabindex="-1"></a><span class="fu">plot!</span>()</span>
+<span id="cb38-12"><a href="#cb38-12" aria-hidden="true" tabindex="-1"></a>offset <span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb38-13"><a href="#cb38-13" aria-hidden="true" tabindex="-1"></a><span class="fu">vline!</span>([sol.t[<span class="kw">end</span>] <span class="op">-</span> p.period <span class="op">-</span> offset, sol.t[<span class="kw">end</span>] <span class="op">-</span> offset], color<span class="op">=</span><span class="st">"red"</span>, linestyle<span class="op">=:</span>dash)</span>
+<span id="cb38-14"><a href="#cb38-14" aria-hidden="true" tabindex="-1"></a><span class="co"># vline!([280, 380], color="red", linestyle=:dash)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Statistics</span>, <span class="bu">LinearAlgebra</span></span>
+<span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a>offset <span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb39-3"><a href="#cb39-3" aria-hidden="true" tabindex="-1"></a>period_idx <span class="op">=</span> <span class="fu">find_idx_for_time</span>(p.period, sol.t, <span class="cn">true</span>)</span>
+<span id="cb39-4"><a href="#cb39-4" aria-hidden="true" tabindex="-1"></a>force_idxs <span class="op">=</span> (period_idx <span class="op">-</span> offset <span class="op">+</span> <span class="fl">1</span>)<span class="op">:</span>(<span class="fu">length</span>(times) <span class="op">-</span> offset)</span>
+<span id="cb39-5"><a href="#cb39-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb39-6"><a href="#cb39-6" aria-hidden="true" tabindex="-1"></a><span class="pp">@time</span> F <span class="op">=</span> <span class="fu">calculate_force_from_period</span>(p, sol; force_idxs)</span>
+<span id="cb39-7"><a href="#cb39-7" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Excited population: "</span>, <span class="fu">real</span>(<span class="fu">sum</span>(<span class="fu">diag</span>(<span class="fu">mean</span>(sol.u[period_idx<span class="op">:</span><span class="kw">end</span>]))[<span class="fl">4</span><span class="op">:</span><span class="kw">end</span>])))</span>
+<span id="cb39-8"><a href="#cb39-8" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Force: "</span>, <span class="fl">1e3</span> <span class="op">.*</span> F) <span class="co">#sign.(force) .* abs(force ⋅ p.particle.v) / norm(p.particle.v))</span></span>
+<span id="cb39-9"><a href="#cb39-9" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Acceleration (10³ m/s^2): "</span>, <span class="fl">1e-3</span> <span class="op">*</span> QuantumStates.ħ <span class="op">*</span> k_norm <span class="op">*</span> Γ <span class="op">*</span> F <span class="op">/</span> m)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="force-versus-velocity-1" class="level4">
+<h4 class="anchored" data-anchor-id="force-versus-velocity-1">Force versus velocity</h4>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">prob_func!</span>(p, scan_values, i)</span>
+<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Update velocity and position</span></span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a>    p.v <span class="op">.=</span> (scan_values.v[i], <span class="fl">0.0</span>, <span class="fl">0.1</span>) <span class="co">#sample_direction(inner_config.v[i])</span></span>
+<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a>    p.r0 <span class="op">.=</span> <span class="fu">rand</span>(uniform_dist, <span class="fl">3</span>) <span class="op">.*</span> <span class="fl">2</span>π</span>
+<span id="cb40-5"><a href="#cb40-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="cn">nothing</span></span>
+<span id="cb40-6"><a href="#cb40-6" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb40-7"><a href="#cb40-7" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">param_func</span>(p, scan_values, i)</span>
+<span id="cb40-8"><a href="#cb40-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="fu">round</span>(<span class="fu">norm</span>(p.v), digits<span class="op">=</span><span class="fl">2</span>)</span>
+<span id="cb40-9"><a href="#cb40-9" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb40-10"><a href="#cb40-10" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">output_func</span>(p, sol)</span>
+<span id="cb40-11"><a href="#cb40-11" aria-hidden="true" tabindex="-1"></a>    f <span class="op">=</span> sol[<span class="kw">end</span>][<span class="kw">end</span>]</span>
+<span id="cb40-12"><a href="#cb40-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> f[<span class="fl">1</span>]</span>
+<span id="cb40-13"><a href="#cb40-13" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb40-14"><a href="#cb40-14" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb41"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a>vs <span class="op">=</span> <span class="fu">repeat</span>(<span class="fl">0</span><span class="op">:</span><span class="fl">0.2</span><span class="op">:</span><span class="fl">7</span>, <span class="fl">100</span>)</span>
+<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a>scan_values <span class="op">=</span> (v <span class="op">=</span> vs,)</span>
+<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a><span class="pp">@time</span> scan_params, forces <span class="op">=</span> <span class="fu">force_scan</span>(prob, scan_values, prob_func!, param_func, output_func);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a>vs, averaged_forces <span class="op">=</span> <span class="fu">average_forces</span>(scan_params, forces)</span>
+<span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(vs, <span class="fl">1e3</span> <span class="op">.*</span> averaged_forces, legend<span class="op">=</span><span class="cn">nothing</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="force-versus-magnetic-field-1" class="level4">
+<h4 class="anchored" data-anchor-id="force-versus-magnetic-field-1">Force versus magnetic field</h4>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">prob_func!</span>(p, scan_values, i)</span>
+<span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Update velocity and position</span></span>
+<span id="cb43-3"><a href="#cb43-3" aria-hidden="true" tabindex="-1"></a>    p.v <span class="op">.=</span> <span class="fu">sample_direction</span>(scan_values.vs[i])</span>
+<span id="cb43-4"><a href="#cb43-4" aria-hidden="true" tabindex="-1"></a>    p.r0 <span class="op">.=</span> <span class="fu">rand</span>(uniform_dist, <span class="fl">3</span>) <span class="op">.*</span> <span class="fl">2</span>π</span>
+<span id="cb43-5"><a href="#cb43-5" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Round `v` to ensure that the OBEs are periodic</span></span>
+<span id="cb43-6"><a href="#cb43-6" aria-hidden="true" tabindex="-1"></a>    p.v <span class="op">.=</span> <span class="fu">round_vel</span>(p.v, p.freq_res)</span>
+<span id="cb43-7"><a href="#cb43-7" aria-hidden="true" tabindex="-1"></a>    p.B <span class="op">.=</span> (<span class="fl">0.0</span>, <span class="fl">0.0</span>, scan_values.Bz[i])</span>
+<span id="cb43-8"><a href="#cb43-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="cn">nothing</span></span>
+<span id="cb43-9"><a href="#cb43-9" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb43-10"><a href="#cb43-10" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">param_func</span>(p, scan_values, i)</span>
+<span id="cb43-11"><a href="#cb43-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> p.B[<span class="fl">3</span>]</span>
+<span id="cb43-12"><a href="#cb43-12" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb43-13"><a href="#cb43-13" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">output_func</span>(p, sol)</span>
+<span id="cb43-14"><a href="#cb43-14" aria-hidden="true" tabindex="-1"></a>    f <span class="op">=</span> <span class="fu">real</span>.(sol[<span class="kw">end</span>][<span class="kw">end</span><span class="op">-</span><span class="fl">2</span><span class="op">:</span><span class="kw">end</span>])</span>
+<span id="cb43-15"><a href="#cb43-15" aria-hidden="true" tabindex="-1"></a>    <span class="co"># return f ⋅ p.v / norm(p.v)</span></span>
+<span id="cb43-16"><a href="#cb43-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> f[<span class="fl">3</span>]</span>
+<span id="cb43-17"><a href="#cb43-17" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb43-18"><a href="#cb43-18" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a>p <span class="op">=</span> <span class="fu">obe</span>(ρ<span class="fl">0</span>, particle, states, lasers, d, d_m, <span class="cn">true</span>, <span class="cn">true</span>, λ<span class="op">=</span>λ, Γ<span class="op">=</span>Γ, freq_res<span class="op">=</span>freq_res)</span>
+<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a><span class="fu">ODEProblem</span>(ρ!, p.ρ<span class="fl">0</span>_vec, tspan, p, save_on<span class="op">=</span><span class="cn">false</span>)</span>
+<span id="cb44-3"><a href="#cb44-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb44-4"><a href="#cb44-4" aria-hidden="true" tabindex="-1"></a>n_samples <span class="op">=</span> <span class="fl">300</span></span>
+<span id="cb44-5"><a href="#cb44-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb44-6"><a href="#cb44-6" aria-hidden="true" tabindex="-1"></a>Bzs <span class="op">=</span> (<span class="fl">0</span><span class="op">:</span><span class="fl">5</span><span class="op">:</span><span class="fl">50</span>) <span class="op">./</span> (Γ <span class="op">/</span> (_μB <span class="op">*</span> <span class="fl">1e6</span>))</span>
+<span id="cb44-7"><a href="#cb44-7" aria-hidden="true" tabindex="-1"></a>vs  <span class="op">=</span> <span class="fl">0.1</span> <span class="op">.*</span> <span class="fu">ones</span>(<span class="fu">length</span>(Bzs))</span>
+<span id="cb44-8"><a href="#cb44-8" aria-hidden="true" tabindex="-1"></a>scan_values <span class="op">=</span> (Bz <span class="op">=</span> <span class="fu">repeat</span>(Bzs, n_samples), vs <span class="op">=</span> <span class="fu">repeat</span>(vs, n_samples))</span>
+<span id="cb44-9"><a href="#cb44-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb44-10"><a href="#cb44-10" aria-hidden="true" tabindex="-1"></a><span class="pp">@time</span> scan_params, forces <span class="op">=</span> <span class="fu">force_scan</span>(prob, scan_values, prob_func!, param_func, output_func);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a>Bzs, averaged_forces <span class="op">=</span> <span class="fu">average_forces</span>(scan_params, forces)</span>
+<span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(Bzs, <span class="fl">1e3</span> <span class="op">*</span> averaged_forces <span class="op">/</span> t_end, legend<span class="op">=</span><span class="cn">nothing</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="attempt-dense-output-for-the-force" class="level5">
+<h5 class="anchored" data-anchor-id="attempt-dense-output-for-the-force">Attempt dense output for the force</h5>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Dense output, how does it compare?</span></span>
+<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a><span class="pp">@time</span> sol <span class="op">=</span> DifferentialEquations.<span class="fu">solve</span>(prob, alg<span class="op">=</span><span class="fu">DP5</span>(), abstol<span class="op">=</span><span class="fl">1e-6</span>, reltol<span class="op">=</span><span class="fl">1e-7</span>, dense<span class="op">=</span><span class="cn">true</span>);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb47"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">6</span></span>
+<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">plot!</span>(i, [<span class="fu">real</span>(<span class="fu">sol</span>(j)[i,i]) for j <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>p.period])</span>
+<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb47-4"><a href="#cb47-4" aria-hidden="true" tabindex="-1"></a><span class="fu">plot!</span>()</span>
+<span id="cb47-5"><a href="#cb47-5" aria-hidden="true" tabindex="-1"></a>offset <span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb47-6"><a href="#cb47-6" aria-hidden="true" tabindex="-1"></a><span class="fu">vline!</span>([sol.t[<span class="kw">end</span>] <span class="op">-</span> period <span class="op">-</span> offset, sol.t[<span class="kw">end</span>] <span class="op">-</span> offset], color<span class="op">=</span><span class="st">"red"</span>, linestyle<span class="op">=:</span>dash)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb48"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a>ts <span class="op">=</span> <span class="fl">500</span><span class="op">:</span><span class="fl">0.001</span><span class="op">:</span><span class="fl">1000</span></span>
+<span id="cb48-2"><a href="#cb48-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sum</span>(<span class="fu">sol</span>(t) <span class="cf">for</span> t <span class="op">∈</span> ts) <span class="op">./</span> <span class="fu">length</span>(ts) <span class="op">|&gt;</span> diag</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+</section>
+</section>
+<section id="caoh" class="level3">
+<h3 class="anchored" data-anchor-id="caoh">CaOH</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb49"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a>λ <span class="op">=</span> <span class="fl">626e-9</span></span>
+<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a>Γ <span class="op">=</span> <span class="fl">2</span>π <span class="op">*</span> <span class="fl">6.4e6</span> <span class="co"># in units of MHz</span></span>
+<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a>m <span class="op">=</span> <span class="pp">@with_unit</span> <span class="fl">57</span> <span class="st">"u"</span></span>
+<span id="cb49-4"><a href="#cb49-4" aria-hidden="true" tabindex="-1"></a>k <span class="op">=</span> <span class="fl">2</span>π <span class="op">/</span> λ</span>
+<span id="cb49-5"><a href="#cb49-5" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="load-tildex000-and-tildea000-hamiltonians" class="level5">
+<h5 class="anchored" data-anchor-id="load-tildex000-and-tildea000-hamiltonians">Load <span class="math inline">\(\tilde{X}(000)\)</span> and <span class="math inline">\(\tilde{A}(000)\)</span> Hamiltonians</h5>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb50"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a>HX <span class="op">=</span> <span class="fu">load_from_file</span>(<span class="st">"CaOH_000_N0to3_Hamiltonian"</span>, <span class="st">"X://My Drive//github//QuantumStates//Hamiltonians//"</span>)</span>
+<span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a>HA <span class="op">=</span> <span class="fu">load_from_file</span>(<span class="st">"CaOH_A000_J12to52_Hamiltonian"</span>, <span class="st">"X://My Drive//github//QuantumStates//Hamiltonians//"</span>)</span>
+<span id="cb50-3"><a href="#cb50-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb50-4"><a href="#cb50-4" aria-hidden="true" tabindex="-1"></a>HX_N1 <span class="op">=</span> <span class="fu">subspace</span>(HX, (N<span class="op">=</span><span class="fl">1</span>,))</span>
+<span id="cb50-5"><a href="#cb50-5" aria-hidden="true" tabindex="-1"></a>HA_J12 <span class="op">=</span> <span class="fu">subspace</span>(HA, (Ω<span class="op">=</span><span class="fl">1</span><span class="op">/</span><span class="fl">2</span>, J<span class="op">=</span><span class="fl">1</span><span class="op">/</span><span class="fl">2</span>,))</span>
+<span id="cb50-6"><a href="#cb50-6" aria-hidden="true" tabindex="-1"></a><span class="fu">evaluate!</span>(HX_N1); QuantumStates.<span class="fu">solve!</span>(HX_N1)</span>
+<span id="cb50-7"><a href="#cb50-7" aria-hidden="true" tabindex="-1"></a><span class="fu">evaluate!</span>(HA_J12); QuantumStates.<span class="fu">solve!</span>(HA_J12)</span>
+<span id="cb50-8"><a href="#cb50-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb50-9"><a href="#cb50-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Add Zeeman term to the X state Hamiltonian</span></span>
+<span id="cb50-10"><a href="#cb50-10" aria-hidden="true" tabindex="-1"></a>_μB <span class="op">=</span> (μ_B <span class="op">/</span> h) <span class="op">*</span> (<span class="fl">1e-6</span> <span class="op">*</span> <span class="fl">1e-4</span>)</span>
+<span id="cb50-11"><a href="#cb50-11" aria-hidden="true" tabindex="-1"></a><span class="fu">Zeeman_z</span>(state, state′) <span class="op">=</span> <span class="fu">Zeeman</span>(state, state′, <span class="fl">0</span>)</span>
+<span id="cb50-12"><a href="#cb50-12" aria-hidden="true" tabindex="-1"></a>HX_N1 <span class="op">=</span> <span class="fu">add_to_H</span>(HX_N1, <span class="op">:</span>B_z, gS <span class="op">*</span> _μB <span class="op">*</span> Zeeman_z)</span>
+<span id="cb50-13"><a href="#cb50-13" aria-hidden="true" tabindex="-1"></a>HX_N1.parameters.B_z <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb50-14"><a href="#cb50-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb50-15"><a href="#cb50-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Convert A states from Hund's case (a) to case (b)</span></span>
+<span id="cb50-16"><a href="#cb50-16" aria-hidden="true" tabindex="-1"></a>HX_0110 <span class="op">=</span> <span class="fu">load_from_file</span>(<span class="st">"CaOH_BendingMode_Hamiltonian"</span>, <span class="st">"X://My Drive//github//QuantumStates//Hamiltonians//"</span>)</span>
+<span id="cb50-17"><a href="#cb50-17" aria-hidden="true" tabindex="-1"></a>states_A_J12_caseB <span class="op">=</span> <span class="fu">convert_basis</span>(HA_J12.states, HX_0110.basis)</span>
+<span id="cb50-18"><a href="#cb50-18" aria-hidden="true" tabindex="-1"></a>basis_idxs, reduced_A_J12_caseB_basis <span class="op">=</span> <span class="fu">states_to_basis</span>(states_A_J12_caseB)</span>
+<span id="cb50-19"><a href="#cb50-19" aria-hidden="true" tabindex="-1"></a>full_basis <span class="op">=</span> [HX_N1.basis; reduced_A_J12_caseB_basis]</span>
+<span id="cb50-20"><a href="#cb50-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb50-21"><a href="#cb50-21" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="op">∈</span> <span class="fu">eachindex</span>(states_A_J12_caseB)</span>
+<span id="cb50-22"><a href="#cb50-22" aria-hidden="true" tabindex="-1"></a>    states_A_J12_caseB[i].coeffs <span class="op">=</span> states_A_J12_caseB[i].coeffs[basis_idxs]</span>
+<span id="cb50-23"><a href="#cb50-23" aria-hidden="true" tabindex="-1"></a>    states_A_J12_caseB[i].basis <span class="op">=</span> reduced_A_J12_caseB_basis</span>
+<span id="cb50-24"><a href="#cb50-24" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb50-25"><a href="#cb50-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb50-26"><a href="#cb50-26" aria-hidden="true" tabindex="-1"></a>states <span class="op">=</span> [HX_N1.states; states_A_J12_caseB]</span>
+<span id="cb50-27"><a href="#cb50-27" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> state <span class="op">∈</span> states</span>
+<span id="cb50-28"><a href="#cb50-28" aria-hidden="true" tabindex="-1"></a>    state.E <span class="op">*=</span> <span class="fl">1e6</span></span>
+<span id="cb50-29"><a href="#cb50-29" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb50-30"><a href="#cb50-30" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb51"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a>d <span class="op">=</span> <span class="fu">zeros</span>(<span class="dt">ComplexF64</span>, <span class="fl">16</span>, <span class="fl">16</span>, <span class="fl">3</span>)</span>
+<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a>d_ge <span class="op">=</span> <span class="fu">zeros</span>(<span class="dt">ComplexF64</span>, <span class="fl">12</span>, <span class="fl">4</span>, <span class="fl">3</span>)</span>
+<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a>basis_tdms <span class="op">=</span> <span class="fu">get_tdms_two_bases</span>(HX_N1.basis, reduced_A_J12_caseB_basis, TDM)</span>
+<span id="cb51-4"><a href="#cb51-4" aria-hidden="true" tabindex="-1"></a><span class="fu">tdms_between_states!</span>(d_ge, basis_tdms, HX_N1.states, states_A_J12_caseB)</span>
+<span id="cb51-5"><a href="#cb51-5" aria-hidden="true" tabindex="-1"></a>d[<span class="fl">1</span><span class="op">:</span><span class="fl">12</span>, <span class="fl">13</span><span class="op">:</span><span class="fl">16</span>, <span class="op">:</span>] <span class="op">.=</span> d_ge</span>
+<span id="cb51-6"><a href="#cb51-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb51-7"><a href="#cb51-7" aria-hidden="true" tabindex="-1"></a>d_m <span class="op">=</span> <span class="fu">zeros</span>(<span class="dt">ComplexF64</span>, <span class="fl">16</span>, <span class="fl">16</span>, <span class="fl">3</span>)</span>
+<span id="cb51-8"><a href="#cb51-8" aria-hidden="true" tabindex="-1"></a>d_m_gg <span class="op">=</span> <span class="fu">zeros</span>(<span class="dt">ComplexF64</span>, <span class="fl">12</span>, <span class="fl">12</span>, <span class="fl">3</span>)</span>
+<span id="cb51-9"><a href="#cb51-9" aria-hidden="true" tabindex="-1"></a>basis_tdms_m <span class="op">=</span> <span class="fu">get_basis_tdms</span>(HX_N1.basis, TDM_magnetic)</span>
+<span id="cb51-10"><a href="#cb51-10" aria-hidden="true" tabindex="-1"></a><span class="fu">tdms_between_states!</span>(d_m_gg, basis_tdms_m, HX_N1.states, HX_N1.states)</span>
+<span id="cb51-11"><a href="#cb51-11" aria-hidden="true" tabindex="-1"></a>d_m[<span class="fl">1</span><span class="op">:</span><span class="fl">12</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">12</span>, <span class="op">:</span>] <span class="op">.=</span> d_m_gg</span>
+<span id="cb51-12"><a href="#cb51-12" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb52"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Laser parameters</span></span>
+<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a>J12_energy <span class="op">=</span> <span class="fu">energy</span>(states[<span class="fl">1</span>])</span>
+<span id="cb52-3"><a href="#cb52-3" aria-hidden="true" tabindex="-1"></a>J32_energy <span class="op">=</span> <span class="fu">energy</span>(states[<span class="fl">5</span>])</span>
+<span id="cb52-4"><a href="#cb52-4" aria-hidden="true" tabindex="-1"></a>A_energy <span class="op">=</span> <span class="fu">energy</span>(states[<span class="fl">13</span>])</span>
+<span id="cb52-5"><a href="#cb52-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb52-6"><a href="#cb52-6" aria-hidden="true" tabindex="-1"></a>δJ12 <span class="op">=</span> <span class="op">+</span><span class="fl">13.0e6</span></span>
+<span id="cb52-7"><a href="#cb52-7" aria-hidden="true" tabindex="-1"></a>δJ32 <span class="op">=</span> <span class="op">+</span><span class="fl">13.0e6</span></span>
+<span id="cb52-8"><a href="#cb52-8" aria-hidden="true" tabindex="-1"></a>θ₁ <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb52-9"><a href="#cb52-9" aria-hidden="true" tabindex="-1"></a>θ₂ <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb52-10"><a href="#cb52-10" aria-hidden="true" tabindex="-1"></a>s_J12 <span class="op">=</span> <span class="fl">5.0</span></span>
+<span id="cb52-11"><a href="#cb52-11" aria-hidden="true" tabindex="-1"></a>s_J32 <span class="op">=</span> <span class="fl">5.0</span></span>
+<span id="cb52-12"><a href="#cb52-12" aria-hidden="true" tabindex="-1"></a>pol <span class="op">=</span> σ⁻</span>
+<span id="cb52-13"><a href="#cb52-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb52-14"><a href="#cb52-14" aria-hidden="true" tabindex="-1"></a>ω_J12 <span class="op">=</span> <span class="fl">2</span>π <span class="op">*</span> (A_energy <span class="op">-</span> J12_energy <span class="op">+</span> δJ12)</span>
+<span id="cb52-15"><a href="#cb52-15" aria-hidden="true" tabindex="-1"></a>ω_J32 <span class="op">=</span> <span class="fl">2</span>π <span class="op">*</span> (A_energy <span class="op">-</span> J32_energy <span class="op">+</span> δJ32)</span>
+<span id="cb52-16"><a href="#cb52-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb52-17"><a href="#cb52-17" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">exp</span>(<span class="cn">im</span> <span class="op">*</span> θ₁) <span class="op">*</span> <span class="fu">rotate_pol</span>(pol, <span class="op">+</span>x̂); laser1 <span class="op">=</span> <span class="fu">Laser</span>(<span class="op">+</span>x̂, ϵ, ω_J12, s_J12)</span>
+<span id="cb52-18"><a href="#cb52-18" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">exp</span>(<span class="cn">im</span> <span class="op">*</span> θ₁) <span class="op">*</span> <span class="fu">rotate_pol</span>(pol, <span class="op">-</span>x̂); laser2 <span class="op">=</span> <span class="fu">Laser</span>(<span class="op">-</span>x̂, ϵ, ω_J12, s_J12)</span>
+<span id="cb52-19"><a href="#cb52-19" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">exp</span>(<span class="cn">im</span> <span class="op">*</span> θ₂) <span class="op">*</span> <span class="fu">rotate_pol</span>(pol, <span class="op">+</span>ŷ); laser3 <span class="op">=</span> <span class="fu">Laser</span>(<span class="op">+</span>ŷ, ϵ, ω_J12, s_J12)</span>
+<span id="cb52-20"><a href="#cb52-20" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">exp</span>(<span class="cn">im</span> <span class="op">*</span> θ₂) <span class="op">*</span> <span class="fu">rotate_pol</span>(pol, <span class="op">-</span>ŷ); laser4 <span class="op">=</span> <span class="fu">Laser</span>(<span class="op">-</span>ŷ, ϵ, ω_J12, s_J12)</span>
+<span id="cb52-21"><a href="#cb52-21" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(pol, <span class="op">+</span>ẑ); laser5 <span class="op">=</span> <span class="fu">Laser</span>(<span class="op">+</span>ẑ, ϵ, ω_J12, s_J12)</span>
+<span id="cb52-22"><a href="#cb52-22" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(pol, <span class="op">-</span>ẑ); laser6 <span class="op">=</span> <span class="fu">Laser</span>(<span class="op">-</span>ẑ, ϵ, ω_J12, s_J12)</span>
+<span id="cb52-23"><a href="#cb52-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb52-24"><a href="#cb52-24" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">exp</span>(<span class="cn">im</span> <span class="op">*</span> θ₁) <span class="op">*</span> <span class="fu">rotate_pol</span>(pol, <span class="op">+</span>x̂); laser7 <span class="op">=</span> <span class="fu">Laser</span>(<span class="op">+</span>x̂, ϵ, ω_J32, s_J32)</span>
+<span id="cb52-25"><a href="#cb52-25" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">exp</span>(<span class="cn">im</span> <span class="op">*</span> θ₁) <span class="op">*</span> <span class="fu">rotate_pol</span>(pol, <span class="op">-</span>x̂); laser8 <span class="op">=</span> <span class="fu">Laser</span>(<span class="op">-</span>x̂, ϵ, ω_J32, s_J32)</span>
+<span id="cb52-26"><a href="#cb52-26" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">exp</span>(<span class="cn">im</span> <span class="op">*</span> θ₂) <span class="op">*</span> <span class="fu">rotate_pol</span>(pol, <span class="op">+</span>ŷ); laser9 <span class="op">=</span> <span class="fu">Laser</span>(<span class="op">+</span>ŷ, ϵ, ω_J32, s_J32)</span>
+<span id="cb52-27"><a href="#cb52-27" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">exp</span>(<span class="cn">im</span> <span class="op">*</span> θ₂) <span class="op">*</span> <span class="fu">rotate_pol</span>(pol, <span class="op">-</span>ŷ); laser10 <span class="op">=</span> <span class="fu">Laser</span>(<span class="op">-</span>ŷ, ϵ, ω_J32, s_J32)</span>
+<span id="cb52-28"><a href="#cb52-28" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(pol, <span class="op">+</span>ẑ); laser11 <span class="op">=</span> <span class="fu">Laser</span>(<span class="op">+</span>ẑ, ϵ, ω_J32, s_J32)</span>
+<span id="cb52-29"><a href="#cb52-29" aria-hidden="true" tabindex="-1"></a>ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(pol, <span class="op">-</span>ẑ); laser12 <span class="op">=</span> <span class="fu">Laser</span>(<span class="op">-</span>ẑ, ϵ, ω_J32, s_J32)</span>
+<span id="cb52-30"><a href="#cb52-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb52-31"><a href="#cb52-31" aria-hidden="true" tabindex="-1"></a>lasers <span class="op">=</span> [laser1, laser2, laser3, laser4, laser5, laser6, laser7, laser8, laser9, laser10, laser11, laser12]</span>
+<span id="cb52-32"><a href="#cb52-32" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb53"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Set initial conditions</span></span>
+<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a>particle <span class="op">=</span> <span class="fu">Particle</span>()</span>
+<span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a>particle.r0 <span class="op">=</span> [<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>]</span>
+<span id="cb53-4"><a href="#cb53-4" aria-hidden="true" tabindex="-1"></a>particle.v <span class="op">=</span> [<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>]</span>
+<span id="cb53-5"><a href="#cb53-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb53-6"><a href="#cb53-6" aria-hidden="true" tabindex="-1"></a>ρ<span class="fl">0</span> <span class="op">=</span> <span class="fu">zeros</span>(<span class="dt">ComplexF64</span>, <span class="fu">length</span>(states), <span class="fu">length</span>(states)) <span class="co"># Use a static array for this??? Might be better...</span></span>
+<span id="cb53-7"><a href="#cb53-7" aria-hidden="true" tabindex="-1"></a>ρ<span class="fl">0</span>[<span class="fl">1</span>,<span class="fl">1</span>] <span class="op">=</span> <span class="fl">1.0</span></span>
+<span id="cb53-8"><a href="#cb53-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb53-9"><a href="#cb53-9" aria-hidden="true" tabindex="-1"></a>freq_res <span class="op">=</span> <span class="fl">1e-1</span></span>
+<span id="cb53-10"><a href="#cb53-10" aria-hidden="true" tabindex="-1"></a>p <span class="op">=</span> <span class="fu">obe</span>(ρ<span class="fl">0</span>, particle, states, lasers, d, d_m, <span class="cn">true</span>, <span class="cn">true</span>, λ, Γ, freq_res; basis_tdms, basis_tdms_m, HX_N1, d_ge, d_m_gg)</span>
+<span id="cb53-11"><a href="#cb53-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb53-12"><a href="#cb53-12" aria-hidden="true" tabindex="-1"></a>p.B <span class="op">.=</span> (<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>) <span class="op">./</span> (Γ <span class="op">/</span> (_μB <span class="op">*</span> <span class="fl">1e6</span>))</span>
+<span id="cb53-13"><a href="#cb53-13" aria-hidden="true" tabindex="-1"></a>p.v <span class="op">.=</span> (<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">4.0</span>)</span>
+<span id="cb53-14"><a href="#cb53-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb53-15"><a href="#cb53-15" aria-hidden="true" tabindex="-1"></a>t_end <span class="op">=</span> <span class="fl">200</span>p.period<span class="op">+</span><span class="fl">1</span></span>
+<span id="cb53-16"><a href="#cb53-16" aria-hidden="true" tabindex="-1"></a>tspan <span class="op">=</span> (<span class="fl">0</span>., t_end)</span>
+<span id="cb53-17"><a href="#cb53-17" aria-hidden="true" tabindex="-1"></a><span class="co"># prob = ODEProblem(ρ!, ρ0, tspan, p, callback=force_cb, save_on=false) #, callback=AutoAbstol(false, init_curmax=0.0)) # what does this do?</span></span>
+<span id="cb53-18"><a href="#cb53-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb53-19"><a href="#cb53-19" aria-hidden="true" tabindex="-1"></a><span class="co"># ρ0_tmp = deepcopy(ρ0)</span></span>
+<span id="cb53-20"><a href="#cb53-20" aria-hidden="true" tabindex="-1"></a><span class="co"># ρ0_tmp_all = [ρ0_tmp for _ in 1:length(times)]</span></span>
+<span id="cb53-21"><a href="#cb53-21" aria-hidden="true" tabindex="-1"></a><span class="co"># @time sol = DifferentialEquations.solve(prob, DP5(), ρ0_tmp_all, abstol=1e-5);</span></span>
+<span id="cb53-22"><a href="#cb53-22" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb54"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Implement a periodic callback to reset the force each period</span></span>
+<span id="cb54-2"><a href="#cb54-2" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">reset_force!</span>(integrator)</span>
+<span id="cb54-3"><a href="#cb54-3" aria-hidden="true" tabindex="-1"></a>    force_current_period <span class="op">=</span> integrator.u[<span class="kw">end</span><span class="op">-</span><span class="fl">2</span><span class="op">:</span><span class="kw">end</span>] <span class="op">/</span> integrator.p.period</span>
+<span id="cb54-4"><a href="#cb54-4" aria-hidden="true" tabindex="-1"></a>    force_diff <span class="op">=</span> <span class="fu">abs</span>.(force_current_period <span class="op">-</span> integrator.p.force_last_period)</span>
+<span id="cb54-5"><a href="#cb54-5" aria-hidden="true" tabindex="-1"></a>    integrator.p.force_last_period <span class="op">=</span> force_current_period</span>
+<span id="cb54-6"><a href="#cb54-6" aria-hidden="true" tabindex="-1"></a>    force_tol <span class="op">=</span> <span class="fl">1e-6</span></span>
+<span id="cb54-7"><a href="#cb54-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> force_diff[<span class="fl">1</span>] <span class="op">&lt;</span> force_tol <span class="op">&amp;&amp;</span> force_diff[<span class="fl">2</span>] <span class="op">&lt;</span> force_tol <span class="op">&amp;&amp;</span> force_diff[<span class="fl">3</span>] <span class="op">&lt;</span> force_tol</span>
+<span id="cb54-8"><a href="#cb54-8" aria-hidden="true" tabindex="-1"></a>        <span class="fu">terminate!</span>(integrator)</span>
+<span id="cb54-9"><a href="#cb54-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span></span>
+<span id="cb54-10"><a href="#cb54-10" aria-hidden="true" tabindex="-1"></a>        integrator.u[<span class="kw">end</span><span class="op">-</span><span class="fl">2</span><span class="op">:</span><span class="kw">end</span>] <span class="op">.=</span> <span class="fl">0.0</span></span>
+<span id="cb54-11"><a href="#cb54-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb54-12"><a href="#cb54-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="cn">nothing</span></span>
+<span id="cb54-13"><a href="#cb54-13" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb54-14"><a href="#cb54-14" aria-hidden="true" tabindex="-1"></a>cb <span class="op">=</span> <span class="fu">PeriodicCallback</span>(reset_force!, p.period)</span>
+<span id="cb54-15"><a href="#cb54-15" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb55"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">StaticArrays</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb56"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a><span class="co"># using BenchmarkTools</span></span>
+<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a><span class="co"># dρ = deepcopy(ρ0)</span></span>
+<span id="cb56-3"><a href="#cb56-3" aria-hidden="true" tabindex="-1"></a><span class="co"># @time ρ!(dρ, ρ0, p, 0.0)</span></span>
+<span id="cb56-4"><a href="#cb56-4" aria-hidden="true" tabindex="-1"></a><span class="co"># @btime ρ!($dρ, $ρ0, $p, 0.0)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb57"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a>prob <span class="op">=</span> <span class="fu">ODEProblem</span>(ρ!, p.ρ<span class="fl">0</span>_vec, tspan, p) </span>
+<span id="cb57-2"><a href="#cb57-2" aria-hidden="true" tabindex="-1"></a><span class="pp">@time</span> sol <span class="op">=</span> DifferentialEquations.<span class="fu">solve</span>(prob, <span class="fu">DP5</span>(), callback<span class="op">=</span>cb, abstol<span class="op">=</span><span class="fl">1e-5</span>)</span>
+<span id="cb57-3"><a href="#cb57-3" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb58"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb58-1"><a href="#cb58-1" aria-hidden="true" tabindex="-1"></a>tspan</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb59"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a>sol.t[<span class="kw">end</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb60"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb60-1"><a href="#cb60-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Plots</span></span>
+<span id="cb60-2"><a href="#cb60-2" aria-hidden="true" tabindex="-1"></a>plot_us <span class="op">=</span> sol.u</span>
+<span id="cb60-3"><a href="#cb60-3" aria-hidden="true" tabindex="-1"></a>plot_ts <span class="op">=</span> sol.t</span>
+<span id="cb60-4"><a href="#cb60-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb60-5"><a href="#cb60-5" aria-hidden="true" tabindex="-1"></a>n_states <span class="op">=</span> <span class="fu">size</span>(p.ρ_soa, <span class="fl">1</span>)</span>
+<span id="cb60-6"><a href="#cb60-6" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(size<span class="op">=</span>(<span class="fl">800</span>, <span class="fl">400</span>), ylim<span class="op">=</span>(<span class="op">-</span><span class="fl">0.1</span>, <span class="fl">1.1</span>), legend<span class="op">=</span><span class="cn">nothing</span>)</span>
+<span id="cb60-7"><a href="#cb60-7" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>n_states</span>
+<span id="cb60-8"><a href="#cb60-8" aria-hidden="true" tabindex="-1"></a>    state_idx <span class="op">=</span> <span class="fu">n_states*</span>(i<span class="op">-</span><span class="fl">1</span>) <span class="op">+</span> i</span>
+<span id="cb60-9"><a href="#cb60-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">plot!</span>(plot_ts, [<span class="fu">real</span>(u[state_idx]) for u <span class="kw">in</span> plot_us])</span>
+<span id="cb60-10"><a href="#cb60-10" aria-hidden="true" tabindex="-1"></a><span class="cf">end</span></span>
+<span id="cb60-11"><a href="#cb60-11" aria-hidden="true" tabindex="-1"></a><span class="fu">plot!</span>()</span>
+<span id="cb60-12"><a href="#cb60-12" aria-hidden="true" tabindex="-1"></a>offset <span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb60-13"><a href="#cb60-13" aria-hidden="true" tabindex="-1"></a><span class="fu">vline!</span>([sol.t[<span class="kw">end</span>] <span class="op">-</span> p.period <span class="op">-</span> offset, sol.t[<span class="kw">end</span>] <span class="op">-</span> offset], color<span class="op">=</span><span class="st">"red"</span>, linestyle<span class="op">=:</span>dash)</span>
+<span id="cb60-14"><a href="#cb60-14" aria-hidden="true" tabindex="-1"></a><span class="co"># vline!([280, 380], color="red", linestyle=:dash)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb61"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb61-1"><a href="#cb61-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Statistics</span>, <span class="bu">LinearAlgebra</span></span>
+<span id="cb61-2"><a href="#cb61-2" aria-hidden="true" tabindex="-1"></a>offset <span class="op">=</span> <span class="fl">0</span></span>
+<span id="cb61-3"><a href="#cb61-3" aria-hidden="true" tabindex="-1"></a>period_idx <span class="op">=</span> <span class="fu">find_idx_for_time</span>(p.period, sol.t, <span class="cn">true</span>)</span>
+<span id="cb61-4"><a href="#cb61-4" aria-hidden="true" tabindex="-1"></a>force_idxs <span class="op">=</span> (period_idx <span class="op">-</span> offset)<span class="op">:</span>(<span class="fu">length</span>(times) <span class="op">-</span> offset)</span>
+<span id="cb61-5"><a href="#cb61-5" aria-hidden="true" tabindex="-1"></a><span class="pp">@time</span> force_value <span class="op">=</span> <span class="fu">calculate_force_from_period</span>(p, sol)</span>
+<span id="cb61-6"><a href="#cb61-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb61-7"><a href="#cb61-7" aria-hidden="true" tabindex="-1"></a><span class="co"># @time force = calculate_force_from_period(p, sol)</span></span>
+<span id="cb61-8"><a href="#cb61-8" aria-hidden="true" tabindex="-1"></a><span class="co"># println("Excited population: ", real(sum(diag(mean(sol.u[force_idxs]))[9:end])))</span></span>
+<span id="cb61-9"><a href="#cb61-9" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Force: "</span>, force_value)</span>
+<span id="cb61-10"><a href="#cb61-10" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"Acceleration (10^3 m/s^2): "</span>, <span class="fl">1e-3</span> <span class="op">*</span> ħ <span class="op">*</span> k <span class="op">*</span> Γ <span class="op">*</span> force_value[<span class="fl">3</span>] <span class="op">/</span> m)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="force-versus-velocity-2" class="level4">
+<h4 class="anchored" data-anchor-id="force-versus-velocity-2">Force versus velocity</h4>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb62"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb62-1"><a href="#cb62-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Why not use `EnsembleProblem`? This makes a new copy for every single problem, which we won't need</span></span>
+<span id="cb62-2"><a href="#cb62-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Instead, we make `nthreads` problems</span></span>
+<span id="cb62-3"><a href="#cb62-3" aria-hidden="true" tabindex="-1"></a><span class="co"># prob = ODEProblem(ρ!, ρ0, tspan, p)</span></span>
+<span id="cb62-4"><a href="#cb62-4" aria-hidden="true" tabindex="-1"></a><span class="co"># ensemble_prob = EnsembleProblem(prob, prob_func=prob_func_inner)</span></span>
+<span id="cb62-5"><a href="#cb62-5" aria-hidden="true" tabindex="-1"></a><span class="co"># @time sim = solve(ensemble_prob, DP5(), EnsembleThreads(), trajectories=100, batch_size=10, abstol=1e-5, save_everystep=false)</span></span>
+<span id="cb62-6"><a href="#cb62-6" aria-hidden="true" tabindex="-1"></a><span class="co"># ;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb63"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb63-1"><a href="#cb63-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">prob_func!</span>(p, scan_values, i)</span>
+<span id="cb63-2"><a href="#cb63-2" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Update velocity and position</span></span>
+<span id="cb63-3"><a href="#cb63-3" aria-hidden="true" tabindex="-1"></a>    p.v <span class="op">.=</span> <span class="fu">sample_direction</span>(scan_values.v[i])</span>
+<span id="cb63-4"><a href="#cb63-4" aria-hidden="true" tabindex="-1"></a>    p.v <span class="op">.=</span> <span class="fu">round_vel</span>(p.v, p.freq_res)    </span>
+<span id="cb63-5"><a href="#cb63-5" aria-hidden="true" tabindex="-1"></a>    p.r0 <span class="op">.=</span> <span class="fu">rand</span>(uniform_dist, <span class="fl">3</span>) <span class="op">.*</span> <span class="fl">2</span>π</span>
+<span id="cb63-6"><a href="#cb63-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="cn">nothing</span></span>
+<span id="cb63-7"><a href="#cb63-7" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb63-8"><a href="#cb63-8" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">param_func</span>(p, scan_values, i)</span>
+<span id="cb63-9"><a href="#cb63-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> scan_values.v[i]</span>
+<span id="cb63-10"><a href="#cb63-10" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb63-11"><a href="#cb63-11" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">output_func</span>(p, sol)</span>
+<span id="cb63-12"><a href="#cb63-12" aria-hidden="true" tabindex="-1"></a>    f <span class="op">=</span> p.force_last_period</span>
+<span id="cb63-13"><a href="#cb63-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> (f <span class="op">⋅</span> p.v) <span class="op">/</span> <span class="fu">norm</span>(p.v)</span>
+<span id="cb63-14"><a href="#cb63-14" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb63-15"><a href="#cb63-15" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb64"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb64-1"><a href="#cb64-1" aria-hidden="true" tabindex="-1"></a>freq_res <span class="op">=</span> <span class="fl">1e-1</span></span>
+<span id="cb64-2"><a href="#cb64-2" aria-hidden="true" tabindex="-1"></a>p <span class="op">=</span> <span class="fu">obe</span>(ρ<span class="fl">0</span>, particle, states, lasers, d, d_m, <span class="cn">true</span>, <span class="cn">true</span>, λ, Γ, freq_res; basis_tdms, basis_tdms_m, HX_N1, d_ge, d_m_gg)</span>
+<span id="cb64-3"><a href="#cb64-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb64-4"><a href="#cb64-4" aria-hidden="true" tabindex="-1"></a>tspan <span class="op">=</span> (<span class="fl">0</span>, <span class="fl">100</span>p.period<span class="op">+</span><span class="fl">1</span>)</span>
+<span id="cb64-5"><a href="#cb64-5" aria-hidden="true" tabindex="-1"></a>prob <span class="op">=</span> <span class="fu">ODEProblem</span>(ρ!, p.ρ<span class="fl">0</span>_vec, tspan, p, save_on<span class="op">=</span><span class="cn">false</span>) </span>
+<span id="cb64-6"><a href="#cb64-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb64-7"><a href="#cb64-7" aria-hidden="true" tabindex="-1"></a>prob.p.B <span class="op">.=</span> (<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>) <span class="op">./</span> (Γ <span class="op">/</span> (_μB <span class="op">*</span> <span class="fl">1e6</span>))</span>
+<span id="cb64-8"><a href="#cb64-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb64-9"><a href="#cb64-9" aria-hidden="true" tabindex="-1"></a>n_samples <span class="op">=</span> <span class="fl">100</span></span>
+<span id="cb64-10"><a href="#cb64-10" aria-hidden="true" tabindex="-1"></a>vs <span class="op">=</span> <span class="fu">repeat</span>(<span class="fl">0</span><span class="op">:</span><span class="fl">1</span><span class="op">:</span><span class="fl">40</span>, n_samples) <span class="op">./</span> (Γ <span class="op">/</span> k)</span>
+<span id="cb64-11"><a href="#cb64-11" aria-hidden="true" tabindex="-1"></a>scan_values <span class="op">=</span> (v <span class="op">=</span> vs,)</span>
+<span id="cb64-12"><a href="#cb64-12" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb65"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb65-1"><a href="#cb65-1" aria-hidden="true" tabindex="-1"></a><span class="pp">@time</span> scan_params, forces <span class="op">=</span> <span class="fu">force_scan</span>(prob, scan_values, prob_func!, param_func, output_func);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb66"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb66-1"><a href="#cb66-1" aria-hidden="true" tabindex="-1"></a>vs, averaged_forces <span class="op">=</span> <span class="fu">average_forces</span>(scan_params, forces)</span>
+<span id="cb66-2"><a href="#cb66-2" aria-hidden="true" tabindex="-1"></a>averaged_forces[<span class="fl">1</span>] <span class="op">=</span> <span class="fl">0.0</span></span>
+<span id="cb66-3"><a href="#cb66-3" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(vs <span class="op">.*</span> (Γ <span class="op">/</span> k), (<span class="fl">1e-3</span> <span class="op">*</span> ħ <span class="op">*</span> k <span class="op">*</span> Γ <span class="op">/</span> m) <span class="op">.*</span> averaged_forces <span class="op">/</span> t_end, legend<span class="op">=</span><span class="cn">nothing</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="force-versus-magnetic-field-2" class="level4">
+<h4 class="anchored" data-anchor-id="force-versus-magnetic-field-2">Force versus magnetic field</h4>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb67"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb67-1"><a href="#cb67-1" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">prob_func!</span>(p, scan_values, i)</span>
+<span id="cb67-2"><a href="#cb67-2" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Update velocity and position</span></span>
+<span id="cb67-3"><a href="#cb67-3" aria-hidden="true" tabindex="-1"></a>    p.v <span class="op">.=</span> <span class="fu">sample_direction</span>(scan_values.v[i])</span>
+<span id="cb67-4"><a href="#cb67-4" aria-hidden="true" tabindex="-1"></a>    p.r0 <span class="op">.=</span> <span class="fu">rand</span>(uniform_dist, <span class="fl">3</span>) <span class="op">.*</span> <span class="fl">2</span>π</span>
+<span id="cb67-5"><a href="#cb67-5" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Round `v` to ensure that the OBEs are periodic</span></span>
+<span id="cb67-6"><a href="#cb67-6" aria-hidden="true" tabindex="-1"></a>    p.v <span class="op">.=</span> <span class="fu">round_vel</span>(p.v, p.freq_res)</span>
+<span id="cb67-7"><a href="#cb67-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb67-8"><a href="#cb67-8" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Solve Hamiltonian for new `Bz` value (this is expensive, so only do it if the value has changed)</span></span>
+<span id="cb67-9"><a href="#cb67-9" aria-hidden="true" tabindex="-1"></a>    Bz <span class="op">=</span> scan_values.Bz[i]</span>
+<span id="cb67-10"><a href="#cb67-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> p.HX_N1.parameters.B_z <span class="op">!=</span> Bz</span>
+<span id="cb67-11"><a href="#cb67-11" aria-hidden="true" tabindex="-1"></a>        p.B <span class="op">.=</span> (<span class="fl">0.0</span>, <span class="fl">0.0</span>, Bz)</span>
+<span id="cb67-12"><a href="#cb67-12" aria-hidden="true" tabindex="-1"></a>        p.HX_N1.parameters.B_z <span class="op">=</span> scan_values.Bz[i]</span>
+<span id="cb67-13"><a href="#cb67-13" aria-hidden="true" tabindex="-1"></a>        <span class="fu">evaluate!</span>(HX_N1)</span>
+<span id="cb67-14"><a href="#cb67-14" aria-hidden="true" tabindex="-1"></a>        QuantumStates.<span class="fu">solve!</span>(HX_N1)</span>
+<span id="cb67-15"><a href="#cb67-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> i <span class="op">∈</span> <span class="fu">eachindex</span>(HX_N1.states)</span>
+<span id="cb67-16"><a href="#cb67-16" aria-hidden="true" tabindex="-1"></a>            HX_N1.states[i].E <span class="op">*=</span> <span class="fl">1e6</span></span>
+<span id="cb67-17"><a href="#cb67-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">end</span></span>
+<span id="cb67-18"><a href="#cb67-18" aria-hidden="true" tabindex="-1"></a>        p.states[<span class="fl">1</span><span class="op">:</span><span class="fl">12</span>] <span class="op">.=</span> HX_N1.states</span>
+<span id="cb67-19"><a href="#cb67-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb67-20"><a href="#cb67-20" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Update TDMs</span></span>
+<span id="cb67-21"><a href="#cb67-21" aria-hidden="true" tabindex="-1"></a>        <span class="fu">tdms_between_states!</span>(p.d_ge, p.basis_tdms, HX_N1.states, states_A_J12_caseB)</span>
+<span id="cb67-22"><a href="#cb67-22" aria-hidden="true" tabindex="-1"></a>        p.d[<span class="fl">1</span><span class="op">:</span><span class="fl">12</span>, <span class="fl">13</span><span class="op">:</span><span class="fl">16</span>, <span class="op">:</span>] <span class="op">.=</span> d_ge</span>
+<span id="cb67-23"><a href="#cb67-23" aria-hidden="true" tabindex="-1"></a>        <span class="fu">tdms_between_states!</span>(d_m_gg, p.basis_tdms_m, HX_N1.states, HX_N1.states)</span>
+<span id="cb67-24"><a href="#cb67-24" aria-hidden="true" tabindex="-1"></a>        p.d_m[<span class="fl">1</span><span class="op">:</span><span class="fl">12</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">12</span>, <span class="op">:</span>] <span class="op">.=</span> d_m_gg</span>
+<span id="cb67-25"><a href="#cb67-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">end</span></span>
+<span id="cb67-26"><a href="#cb67-26" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb67-27"><a href="#cb67-27" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="cn">nothing</span></span>
+<span id="cb67-28"><a href="#cb67-28" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb67-29"><a href="#cb67-29" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">param_func</span>(p, scan_values, i)</span>
+<span id="cb67-30"><a href="#cb67-30" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> scan_values.Bz[i]</span>
+<span id="cb67-31"><a href="#cb67-31" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb67-32"><a href="#cb67-32" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">output_func</span>(p, sol)</span>
+<span id="cb67-33"><a href="#cb67-33" aria-hidden="true" tabindex="-1"></a>    f <span class="op">=</span> <span class="fu">calculate_force_from_period</span>(p, sol)</span>
+<span id="cb67-34"><a href="#cb67-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> f[<span class="fl">3</span>] <span class="co">#(f ⋅ p.v) / norm(p.v)</span></span>
+<span id="cb67-35"><a href="#cb67-35" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb67-36"><a href="#cb67-36" aria-hidden="true" tabindex="-1"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb68"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb68-1"><a href="#cb68-1" aria-hidden="true" tabindex="-1"></a>n_samples <span class="op">=</span> <span class="fl">10</span></span>
+<span id="cb68-2"><a href="#cb68-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb68-3"><a href="#cb68-3" aria-hidden="true" tabindex="-1"></a>Bzs <span class="op">=</span> (<span class="fl">0</span><span class="op">:</span><span class="fl">2</span><span class="op">:</span><span class="fl">50</span>) <span class="op">./</span> (Γ <span class="op">/</span> (_μB <span class="op">*</span> <span class="fl">1e6</span>))</span>
+<span id="cb68-4"><a href="#cb68-4" aria-hidden="true" tabindex="-1"></a>vs  <span class="op">=</span> (<span class="fl">1.0</span> <span class="op">/</span> (Γ <span class="op">/</span> k)) <span class="op">.*</span> <span class="fu">ones</span>(<span class="fu">length</span>(Bzs))</span>
+<span id="cb68-5"><a href="#cb68-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb68-6"><a href="#cb68-6" aria-hidden="true" tabindex="-1"></a>scan_values <span class="op">=</span> (Bz <span class="op">=</span> <span class="fu">repeat</span>(Bzs, n_samples), v <span class="op">=</span> <span class="fu">repeat</span>(vs, n_samples))</span>
+<span id="cb68-7"><a href="#cb68-7" aria-hidden="true" tabindex="-1"></a><span class="pp">@time</span> scan_params, forces <span class="op">=</span> <span class="fu">force_scan</span>(prob, scan_values, prob_func!, param_func, output_func);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb69"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb69-1"><a href="#cb69-1" aria-hidden="true" tabindex="-1"></a>Bzs, averaged_forces <span class="op">=</span> <span class="fu">average_forces</span>(scan_params, forces)</span>
+<span id="cb69-2"><a href="#cb69-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(Bzs <span class="op">.*</span> (Γ <span class="op">/</span> (_μB <span class="op">*</span> <span class="fl">1e6</span>)), (<span class="fl">1e-3</span> <span class="op">*</span> ħ <span class="op">*</span> k <span class="op">*</span> Γ <span class="op">/</span> m) <span class="op">.*</span> averaged_forces, legend<span class="op">=</span><span class="cn">nothing</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+
+
+</section>
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    target: function(trigger) {
+      return trigger.previousElementSibling;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    setTimeout(function() {
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const cites = ref.parentNode.getAttribute('data-cites').split(' ');
+    tippyHover(ref, function() {
+      var popup = window.document.createElement('div');
+      cites.forEach(function(cite) {
+        var citeDiv = window.document.createElement('div');
+        citeDiv.classList.add('hanging-indent');
+        citeDiv.classList.add('csl-entry');
+        var biblioDiv = window.document.getElementById('ref-' + cite);
+        if (biblioDiv) {
+          citeDiv.innerHTML = biblioDiv.innerHTML;
+        }
+        popup.appendChild(citeDiv);
+      });
+      return popup.innerHTML;
+    });
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
