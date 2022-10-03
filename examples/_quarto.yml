@@ -19,6 +19,6 @@ format:
     theme: cosmo
     css: styles.css
     toc: true
-    fontsize: 0.9em
+    fontsize: 1.0em
 
 freeze: auto
