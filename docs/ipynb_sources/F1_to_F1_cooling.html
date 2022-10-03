@@ -180,7 +180,10 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#force-curves-versus-velocity-for-an-f_1-rightarrow-f_1-system" id="toc-force-curves-versus-velocity-for-an-f_1-rightarrow-f_1-system" class="nav-link active" data-scroll-target="#force-curves-versus-velocity-for-an-f_1-rightarrow-f_1-system">Force curves versus velocity for an <span class="math inline">\(F_1 \rightarrow F_1\)</span> system</a></li>
+  <li><a href="#force-curves-versus-velocity-for-an-f_1-rightarrow-f_1-system" id="toc-force-curves-versus-velocity-for-an-f_1-rightarrow-f_1-system" class="nav-link active" data-scroll-target="#force-curves-versus-velocity-for-an-f_1-rightarrow-f_1-system">Force curves versus velocity for an <span class="math inline">\(F_1 \rightarrow F_1\)</span> system</a>
+  <ul class="collapse">
+  <li><a href="#laser-cooling-force-versus-velocity" id="toc-laser-cooling-force-versus-velocity" class="nav-link" data-scroll-target="#laser-cooling-force-versus-velocity">Laser cooling force versus velocity</a></li>
+  </ul></li>
   </ul>
 </nav>
     </div>
@@ -192,110 +195,165 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <section id="force-curves-versus-velocity-for-an-f_1-rightarrow-f_1-system" class="level1">
 <h1>Force curves versus velocity for an <span class="math inline">\(F_1 \rightarrow F_1\)</span> system</h1>
 <p>In this notebook, we simulate cooling for an <span class="math inline">\(F_1 \rightarrow F_1\)</span> system. In particular, we reproduces figures from <a href="https://doi.org/10.1088/1367-2630/18/12/123017">NJP 18, 123017 (2016)</a>.</p>
-<div class="cell" data-execution_count="178">
+<div class="cell" data-execution_count="1">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1"></a><span class="im">using</span></span>
 <span id="cb1-2"><a href="#cb1-2"></a>    <span class="bu">QuantumStates</span>,</span>
 <span id="cb1-3"><a href="#cb1-3"></a>    <span class="bu">OpticalBlochEquations</span>,</span>
 <span id="cb1-4"><a href="#cb1-4"></a>    <span class="bu">DifferentialEquations</span>,</span>
 <span id="cb1-5"><a href="#cb1-5"></a>    <span class="bu">UnitsToValue</span></span>
 <span id="cb1-6"><a href="#cb1-6"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>┌ Info: Precompiling OpticalBlochEquations [691d0331-80d3-41b1-b293-7891a6f4a14f]
+└ @ Base loading.jl:1662</code></pre>
+</div>
 </div>
 <p>We’ll first define a few physical constants needed for this simulation.</p>
-<div class="cell" data-execution_count="179">
-<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1"></a>λ <span class="op">=</span> <span class="fl">1</span>; Γ <span class="op">=</span> <span class="fl">2</span>π; m <span class="op">=</span> <span class="fl">1</span>; k <span class="op">=</span> <span class="fl">2</span>π <span class="op">/</span> λ;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1"></a>λ <span class="op">=</span> <span class="fl">1</span>; Γ <span class="op">=</span> <span class="fl">2</span>π; m <span class="op">=</span> <span class="fl">1</span>; k <span class="op">=</span> <span class="fl">2</span>π <span class="op">/</span> λ;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Using <code>QuantumStates</code>, we can create both the ground states (<code>F1_lower</code>) and excited states (<code>F1_upper</code>) using the <code>AngularMomentumState</code> type, which is a state type of “bare” angular momentum states <span class="math inline">\(|F,m\rangle\)</span>.</p>
-<div class="cell" data-execution_count="180">
-<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb3-1"><a href="#cb3-1"></a><span class="co"># F = 1</span></span>
-<span id="cb3-2"><a href="#cb3-2"></a>QN_bounds <span class="op">=</span> (E <span class="op">=</span> <span class="fl">0.0</span>, F <span class="op">=</span> <span class="fl">1</span>)</span>
-<span id="cb3-3"><a href="#cb3-3"></a>F1_lower <span class="op">=</span> <span class="fu">enumerate_states</span>(AngularMomentumState, QN_bounds)</span>
-<span id="cb3-4"><a href="#cb3-4"></a>QN_bounds <span class="op">=</span> (E <span class="op">=</span> <span class="fl">1.0</span>, F <span class="op">=</span> <span class="fl">1</span>)</span>
-<span id="cb3-5"><a href="#cb3-5"></a>F1_upper <span class="op">=</span> <span class="fu">enumerate_states</span>(AngularMomentumState, QN_bounds)</span>
-<span id="cb3-6"><a href="#cb3-6"></a></span>
-<span id="cb3-7"><a href="#cb3-7"></a>ground_states <span class="op">=</span> F1_lower</span>
-<span id="cb3-8"><a href="#cb3-8"></a>excited_states <span class="op">=</span> F1_upper</span>
-<span id="cb3-9"><a href="#cb3-9"></a>states <span class="op">=</span> [ground_states; excited_states]</span>
-<span id="cb3-10"><a href="#cb3-10"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</div>
-<p>The transition dipole moments <code>d</code> and the magnetic moments <code>d_m</code> are calculated using <code>QuantumStates.get_tdms_two_bases</code>:</p>
-<div class="cell" data-execution_count="181">
-<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1"></a>d_ge <span class="op">=</span> <span class="fu">get_tdms_two_bases</span>(ground_states, excited_states, TDM)</span>
-<span id="cb4-2"><a href="#cb4-2"></a>d <span class="op">=</span> [</span>
-<span id="cb4-3"><a href="#cb4-3"></a>    [<span class="fu">zeros</span>(<span class="fu">length</span>(ground_states), <span class="fu">length</span>(excited_states), <span class="fl">3</span>); <span class="fu">permutedims</span>(d_ge, (<span class="fl">2</span>,<span class="fl">1</span>,<span class="fl">3</span>))] [d_ge; <span class="fu">zeros</span>(<span class="fu">length</span>(excited_states), <span class="fu">length</span>(ground_states), <span class="fl">3</span>)]</span>
-<span id="cb4-4"><a href="#cb4-4"></a>]</span>
-<span id="cb4-5"><a href="#cb4-5"></a></span>
-<span id="cb4-6"><a href="#cb4-6"></a>d_m_ge <span class="op">=</span> <span class="fu">get_tdms_two_bases</span>(ground_states, excited_states, TDM_magnetic)</span>
-<span id="cb4-7"><a href="#cb4-7"></a>d_m <span class="op">=</span> [</span>
-<span id="cb4-8"><a href="#cb4-8"></a>    [d_m_ge; <span class="fu">zeros</span>(<span class="fu">length</span>(ground_states), <span class="fu">length</span>(excited_states), <span class="fl">3</span>)] [<span class="fu">zeros</span>(<span class="fu">length</span>(excited_states), <span class="fu">length</span>(ground_states), <span class="fl">3</span>); d_m_ge]</span>
-<span id="cb4-9"><a href="#cb4-9"></a>]</span>
+<div class="cell" data-execution_count="3">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1"></a><span class="co"># F = 1</span></span>
+<span id="cb4-2"><a href="#cb4-2"></a>QN_bounds <span class="op">=</span> (E <span class="op">=</span> <span class="fl">0.0</span>, F <span class="op">=</span> <span class="fl">1</span>)</span>
+<span id="cb4-3"><a href="#cb4-3"></a>F1_lower <span class="op">=</span> <span class="fu">enumerate_states</span>(AngularMomentumState, QN_bounds)</span>
+<span id="cb4-4"><a href="#cb4-4"></a>QN_bounds <span class="op">=</span> (E <span class="op">=</span> <span class="fl">1.0</span>, F <span class="op">=</span> <span class="fl">1</span>)</span>
+<span id="cb4-5"><a href="#cb4-5"></a>F1_upper <span class="op">=</span> <span class="fu">enumerate_states</span>(AngularMomentumState, QN_bounds)</span>
+<span id="cb4-6"><a href="#cb4-6"></a></span>
+<span id="cb4-7"><a href="#cb4-7"></a>ground_states <span class="op">=</span> F1_lower</span>
+<span id="cb4-8"><a href="#cb4-8"></a>excited_states <span class="op">=</span> F1_upper</span>
+<span id="cb4-9"><a href="#cb4-9"></a>states <span class="op">=</span> [ground_states; excited_states]</span>
 <span id="cb4-10"><a href="#cb4-10"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
+<p>The transition dipole moments <code>d</code> and the magnetic moments <code>d_m</code> are calculated using <code>QuantumStates.get_tdms_two_bases</code>:</p>
+<div class="cell" data-execution_count="4">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1"></a>d_ge <span class="op">=</span> <span class="fu">get_tdms_two_bases</span>(ground_states, excited_states, TDM)</span>
+<span id="cb5-2"><a href="#cb5-2"></a>d <span class="op">=</span> [</span>
+<span id="cb5-3"><a href="#cb5-3"></a>    [<span class="fu">zeros</span>(<span class="fu">length</span>(ground_states), <span class="fu">length</span>(excited_states), <span class="fl">3</span>); <span class="fu">permutedims</span>(d_ge, (<span class="fl">2</span>,<span class="fl">1</span>,<span class="fl">3</span>))] [d_ge; <span class="fu">zeros</span>(<span class="fu">length</span>(excited_states), <span class="fu">length</span>(ground_states), <span class="fl">3</span>)]</span>
+<span id="cb5-4"><a href="#cb5-4"></a>]</span>
+<span id="cb5-5"><a href="#cb5-5"></a></span>
+<span id="cb5-6"><a href="#cb5-6"></a>d_m_ge <span class="op">=</span> <span class="fu">get_tdms_two_bases</span>(ground_states, excited_states, TDM_magnetic)</span>
+<span id="cb5-7"><a href="#cb5-7"></a>d_m <span class="op">=</span> [</span>
+<span id="cb5-8"><a href="#cb5-8"></a>    [d_m_ge; <span class="fu">zeros</span>(<span class="fu">length</span>(ground_states), <span class="fu">length</span>(excited_states), <span class="fl">3</span>)] [<span class="fu">zeros</span>(<span class="fu">length</span>(excited_states), <span class="fu">length</span>(ground_states), <span class="fl">3</span>); d_m_ge]</span>
+<span id="cb5-9"><a href="#cb5-9"></a>]</span>
+<span id="cb5-10"><a href="#cb5-10"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
 <p>We now define the lasers, along with the detuning <span class="math inline">\(\Delta\)</span> and saturation <span class="math inline">\(s\)</span>. Note that all lasers have the polarization <span class="math inline">\(\sigma^+\)</span> in their own frame, which is rotated to the <span class="math inline">\(\hat{z}\)</span> axis using <code>rotate_pol</code>. (Technically, the rotation is performed <em>from</em> the <span class="math inline">\(\hat{z}\)</span> axis <em>to</em> the axis of the given laser’s <span class="math inline">\(k\)</span>-vector because the variable <span class="math inline">\(\sigma^+\)</span> is defined relative to the <span class="math inline">\(\hat{z}\)</span> axis.)</p>
-<div class="cell" data-execution_count="182">
-<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1"></a><span class="co"># Laser parameters</span></span>
-<span id="cb5-2"><a href="#cb5-2"></a>Δ <span class="op">=</span> <span class="op">-</span><span class="fl">2.5</span>Γ</span>
-<span id="cb5-3"><a href="#cb5-3"></a>s <span class="op">=</span> <span class="fl">1.0</span></span>
-<span id="cb5-4"><a href="#cb5-4"></a></span>
-<span id="cb5-5"><a href="#cb5-5"></a><span class="co"># Frequency of the lasers (in angular frequency units)</span></span>
-<span id="cb5-6"><a href="#cb5-6"></a>ω_F1_to_F1 <span class="op">=</span> <span class="fl">2</span>π <span class="op">*</span> (F1_upper[<span class="fl">1</span>].E <span class="op">-</span> F1_lower[<span class="fl">1</span>].E) <span class="op">+</span> Δ</span>
-<span id="cb5-7"><a href="#cb5-7"></a></span>
-<span id="cb5-8"><a href="#cb5-8"></a>k̂ <span class="op">=</span> <span class="op">+</span>x̂; ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(σ⁺, k̂); laser1 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
-<span id="cb5-9"><a href="#cb5-9"></a>k̂ <span class="op">=</span> <span class="op">-</span>x̂; ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(σ⁺, k̂); laser2 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
-<span id="cb5-10"><a href="#cb5-10"></a>k̂ <span class="op">=</span> <span class="op">+</span>ŷ; ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(σ⁺, k̂); laser3 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
-<span id="cb5-11"><a href="#cb5-11"></a>k̂ <span class="op">=</span> <span class="op">-</span>ŷ; ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(σ⁺, k̂); laser4 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
-<span id="cb5-12"><a href="#cb5-12"></a>k̂ <span class="op">=</span> <span class="op">+</span>ẑ; ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(σ⁺, k̂); laser5 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
-<span id="cb5-13"><a href="#cb5-13"></a>k̂ <span class="op">=</span> <span class="op">-</span>ẑ; ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(σ⁺, k̂); laser6 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
-<span id="cb5-14"><a href="#cb5-14"></a></span>
-<span id="cb5-15"><a href="#cb5-15"></a>lasers <span class="op">=</span> [laser1, laser2, laser3, laser4, laser5, laser6]</span>
-<span id="cb5-16"><a href="#cb5-16"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell" data-execution_count="5">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1"></a><span class="co"># Laser parameters</span></span>
+<span id="cb6-2"><a href="#cb6-2"></a>Δ <span class="op">=</span> <span class="op">-</span><span class="fl">2.5</span>Γ</span>
+<span id="cb6-3"><a href="#cb6-3"></a>s <span class="op">=</span> <span class="fl">2.0</span></span>
+<span id="cb6-4"><a href="#cb6-4"></a></span>
+<span id="cb6-5"><a href="#cb6-5"></a><span class="co"># Frequency of the lasers (in angular frequency units)</span></span>
+<span id="cb6-6"><a href="#cb6-6"></a>ω_F1_to_F1 <span class="op">=</span> <span class="fl">2</span>π <span class="op">*</span> (F1_upper[<span class="fl">1</span>].E <span class="op">-</span> F1_lower[<span class="fl">1</span>].E) <span class="op">+</span> Δ</span>
+<span id="cb6-7"><a href="#cb6-7"></a></span>
+<span id="cb6-8"><a href="#cb6-8"></a>k̂ <span class="op">=</span> <span class="op">+</span>x̂; ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(σ⁺, k̂); laser1 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb6-9"><a href="#cb6-9"></a>k̂ <span class="op">=</span> <span class="op">-</span>x̂; ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(σ⁺, k̂); laser2 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb6-10"><a href="#cb6-10"></a>k̂ <span class="op">=</span> <span class="op">+</span>ŷ; ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(σ⁺, k̂); laser3 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb6-11"><a href="#cb6-11"></a>k̂ <span class="op">=</span> <span class="op">-</span>ŷ; ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(σ⁺, k̂); laser4 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb6-12"><a href="#cb6-12"></a>k̂ <span class="op">=</span> <span class="op">+</span>ẑ; ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(σ⁺, k̂); laser5 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb6-13"><a href="#cb6-13"></a>k̂ <span class="op">=</span> <span class="op">-</span>ẑ; ϵ <span class="op">=</span> <span class="fu">rotate_pol</span>(σ⁺, k̂); laser6 <span class="op">=</span> <span class="fu">Laser</span>(k̂, ϵ, ω_F1_to_F1, s)</span>
+<span id="cb6-14"><a href="#cb6-14"></a></span>
+<span id="cb6-15"><a href="#cb6-15"></a>lasers <span class="op">=</span> [laser1, laser2, laser3, laser4, laser5, laser6]</span>
+<span id="cb6-16"><a href="#cb6-16"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>Before computing the force across a range of velocities, let’s first check that our simulation produces reasonable results for a specific set of parameters:</p>
-<div class="cell" data-execution_count="183">
-<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb6-1"><a href="#cb6-1"></a><span class="co"># `Particle` type defines the starting position `r0` and velocity `v` used for the simulation</span></span>
-<span id="cb6-2"><a href="#cb6-2"></a>particle <span class="op">=</span> <span class="fu">Particle</span>()</span>
-<span id="cb6-3"><a href="#cb6-3"></a>particle.r0 <span class="op">=</span> [<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>]</span>
-<span id="cb6-4"><a href="#cb6-4"></a>particle.v <span class="op">=</span> [<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.1</span>]</span>
-<span id="cb6-5"><a href="#cb6-5"></a></span>
-<span id="cb6-6"><a href="#cb6-6"></a><span class="co"># Define the density matrix `ρ0` at t = 0</span></span>
-<span id="cb6-7"><a href="#cb6-7"></a>ρ<span class="fl">0</span> <span class="op">=</span> <span class="fu">zeros</span>(<span class="dt">ComplexF64</span>, <span class="fu">length</span>(states), <span class="fu">length</span>(states))</span>
-<span id="cb6-8"><a href="#cb6-8"></a>ρ<span class="fl">0</span>[<span class="fl">1</span>,<span class="fl">1</span>] <span class="op">=</span> <span class="fl">1.0</span></span>
-<span id="cb6-9"><a href="#cb6-9"></a></span>
-<span id="cb6-10"><a href="#cb6-10"></a><span class="co"># `freq_res` designates the resolution used for the frequencies and velocity used in the simulation</span></span>
-<span id="cb6-11"><a href="#cb6-11"></a>freq_res <span class="op">=</span> <span class="fl">1e-1</span></span>
-<span id="cb6-12"><a href="#cb6-12"></a></span>
-<span id="cb6-13"><a href="#cb6-13"></a>p <span class="op">=</span> <span class="fu">obe</span>(ρ<span class="fl">0</span>, particle, states, lasers, d, d_m, <span class="cn">true</span>, <span class="cn">true</span>, λ, Γ, freq_res)</span>
-<span id="cb6-14"><a href="#cb6-14"></a></span>
-<span id="cb6-15"><a href="#cb6-15"></a><span class="co"># Define the end time `t_end` of the simulation</span></span>
-<span id="cb6-16"><a href="#cb6-16"></a>t_end <span class="op">=</span> <span class="fl">4</span>p.period<span class="op">+</span><span class="fl">1</span></span>
-<span id="cb6-17"><a href="#cb6-17"></a>tspan <span class="op">=</span> (<span class="fl">0</span>., t_end)</span>
-<span id="cb6-18"><a href="#cb6-18"></a></span>
-<span id="cb6-19"><a href="#cb6-19"></a>prob <span class="op">=</span> <span class="fu">ODEProblem</span>(ρ!, p.ρ<span class="fl">0</span>_vec, tspan, p) </span>
-<span id="cb6-20"><a href="#cb6-20"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1"></a><span class="co"># `Particle` type defines the starting position `r0` and velocity `v` used for the simulation</span></span>
+<span id="cb7-2"><a href="#cb7-2"></a>particle <span class="op">=</span> <span class="fu">Particle</span>()</span>
+<span id="cb7-3"><a href="#cb7-3"></a>particle.r0 <span class="op">=</span> [<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.0</span>]</span>
+<span id="cb7-4"><a href="#cb7-4"></a>particle.v <span class="op">=</span> [<span class="fl">0.0</span>, <span class="fl">0.0</span>, <span class="fl">0.2</span>]</span>
+<span id="cb7-5"><a href="#cb7-5"></a></span>
+<span id="cb7-6"><a href="#cb7-6"></a><span class="co"># Define the density matrix `ρ0` at t = 0</span></span>
+<span id="cb7-7"><a href="#cb7-7"></a>ρ<span class="fl">0</span> <span class="op">=</span> <span class="fu">zeros</span>(<span class="dt">ComplexF64</span>, <span class="fu">length</span>(states), <span class="fu">length</span>(states))</span>
+<span id="cb7-8"><a href="#cb7-8"></a>ρ<span class="fl">0</span>[<span class="fl">1</span>,<span class="fl">1</span>] <span class="op">=</span> <span class="fl">1.0</span></span>
+<span id="cb7-9"><a href="#cb7-9"></a></span>
+<span id="cb7-10"><a href="#cb7-10"></a><span class="co"># `freq_res` designates the resolution used for the frequencies and velocity used in the simulation</span></span>
+<span id="cb7-11"><a href="#cb7-11"></a>freq_res <span class="op">=</span> <span class="fl">1e-1</span></span>
+<span id="cb7-12"><a href="#cb7-12"></a></span>
+<span id="cb7-13"><a href="#cb7-13"></a>p <span class="op">=</span> <span class="fu">obe</span>(ρ<span class="fl">0</span>, particle, states, lasers, d, d_m, <span class="cn">true</span>, <span class="cn">true</span>, λ, Γ, freq_res)</span>
+<span id="cb7-14"><a href="#cb7-14"></a></span>
+<span id="cb7-15"><a href="#cb7-15"></a><span class="co"># Define the end time `t_end` of the simulation</span></span>
+<span id="cb7-16"><a href="#cb7-16"></a>t_end <span class="op">=</span> <span class="fl">4</span>p.period<span class="op">+</span><span class="fl">1</span></span>
+<span id="cb7-17"><a href="#cb7-17"></a>tspan <span class="op">=</span> (<span class="fl">0</span>., t_end)</span>
+<span id="cb7-18"><a href="#cb7-18"></a></span>
+<span id="cb7-19"><a href="#cb7-19"></a>prob <span class="op">=</span> <span class="fu">ODEProblem</span>(ρ!, p.ρ<span class="fl">0</span>_vec, tspan, p) </span>
+<span id="cb7-20"><a href="#cb7-20"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="184">
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1"></a><span class="pp">@time</span> sol <span class="op">=</span> DifferentialEquations.<span class="fu">solve</span>(prob, alg<span class="op">=</span><span class="fu">DP5</span>(), abstol<span class="op">=</span><span class="fl">1e-4</span>);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell" data-execution_count="7">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb8-1"><a href="#cb8-1"></a><span class="pp">@time</span> sol <span class="op">=</span> DifferentialEquations.<span class="fu">solve</span>(prob, alg<span class="op">=</span><span class="fu">DP5</span>(), abstol<span class="op">=</span><span class="fl">1e-4</span>);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>  0.002967 seconds (1.91 k allocations: 1.150 MiB)</code></pre>
+<pre><code> 20.770447 seconds (36.18 M allocations: 3.983 GiB, 3.04% gc time, 99.98% compilation time)</code></pre>
 </div>
 </div>
-<div class="cell" data-execution_count="185">
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb9-1"><a href="#cb9-1"></a><span class="im">using</span> <span class="bu">Plots</span></span>
-<span id="cb9-2"><a href="#cb9-2"></a>plot_us <span class="op">=</span> sol.u</span>
-<span id="cb9-3"><a href="#cb9-3"></a>plot_ts <span class="op">=</span> sol.t</span>
-<span id="cb9-4"><a href="#cb9-4"></a></span>
-<span id="cb9-5"><a href="#cb9-5"></a>n_states <span class="op">=</span> <span class="fu">size</span>(p.ρ_soa, <span class="fl">1</span>)</span>
-<span id="cb9-6"><a href="#cb9-6"></a><span class="fu">plot</span>(size<span class="op">=</span>(<span class="fl">800</span>, <span class="fl">400</span>), ylim<span class="op">=</span>(<span class="op">-</span><span class="fl">0.1</span>, <span class="fl">1.1</span>), legend<span class="op">=</span><span class="cn">nothing</span>)</span>
-<span id="cb9-7"><a href="#cb9-7"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>n_states</span>
-<span id="cb9-8"><a href="#cb9-8"></a>    state_idx <span class="op">=</span> <span class="fu">n_states*</span>(i<span class="op">-</span><span class="fl">1</span>) <span class="op">+</span> i</span>
-<span id="cb9-9"><a href="#cb9-9"></a>    <span class="fu">plot!</span>(plot_ts, [<span class="fu">real</span>(u[state_idx]) for u <span class="kw">in</span> plot_us])</span>
-<span id="cb9-10"><a href="#cb9-10"></a><span class="cf">end</span></span>
-<span id="cb9-11"><a href="#cb9-11"></a><span class="fu">plot!</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-display" data-execution_count="185">
+<div class="cell" data-execution_count="8">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb10-1"><a href="#cb10-1"></a><span class="im">using</span> <span class="bu">Plots</span></span>
+<span id="cb10-2"><a href="#cb10-2"></a>plot_us <span class="op">=</span> sol.u</span>
+<span id="cb10-3"><a href="#cb10-3"></a>plot_ts <span class="op">=</span> sol.t</span>
+<span id="cb10-4"><a href="#cb10-4"></a></span>
+<span id="cb10-5"><a href="#cb10-5"></a>n_states <span class="op">=</span> <span class="fu">size</span>(p.ρ_soa, <span class="fl">1</span>)</span>
+<span id="cb10-6"><a href="#cb10-6"></a><span class="fu">plot</span>(size<span class="op">=</span>(<span class="fl">800</span>, <span class="fl">400</span>), ylim<span class="op">=</span>(<span class="op">-</span><span class="fl">0.1</span>, <span class="fl">1.1</span>), legend<span class="op">=</span><span class="cn">nothing</span>)</span>
+<span id="cb10-7"><a href="#cb10-7"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span>n_states</span>
+<span id="cb10-8"><a href="#cb10-8"></a>    state_idx <span class="op">=</span> <span class="fu">n_states*</span>(i<span class="op">-</span><span class="fl">1</span>) <span class="op">+</span> i</span>
+<span id="cb10-9"><a href="#cb10-9"></a>    <span class="fu">plot!</span>(plot_ts, [<span class="fu">real</span>(u[state_idx]) for u <span class="kw">in</span> plot_us])</span>
+<span id="cb10-10"><a href="#cb10-10"></a><span class="cf">end</span></span>
+<span id="cb10-11"><a href="#cb10-11"></a><span class="fu">plot!</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="8">
 <p><img src="F1_to_F1_cooling_files/figure-html/cell-9-output-1.svg" class="img-fluid"></p>
 </div>
 </div>
+<section id="laser-cooling-force-versus-velocity" class="level2">
+<h2 class="anchored" data-anchor-id="laser-cooling-force-versus-velocity">Laser cooling force versus velocity</h2>
+<div class="cell" data-execution_count="9">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb11-1"><a href="#cb11-1"></a><span class="im">using</span> <span class="bu">Distributions</span></span>
+<span id="cb11-2"><a href="#cb11-2"></a>uniform_dist <span class="op">=</span> <span class="fu">Uniform</span>(<span class="fl">0</span>, <span class="fl">2</span>π)</span>
+<span id="cb11-3"><a href="#cb11-3"></a><span class="kw">function</span> <span class="fu">sample_direction</span>(r<span class="op">=</span><span class="fl">1.0</span>)</span>
+<span id="cb11-4"><a href="#cb11-4"></a>    θ <span class="op">=</span> <span class="fl">2</span>π <span class="op">*</span> <span class="fu">rand</span>()</span>
+<span id="cb11-5"><a href="#cb11-5"></a>    z <span class="op">=</span> <span class="fu">rand</span>() <span class="op">*</span> <span class="fl">2</span> <span class="op">-</span> <span class="fl">1</span></span>
+<span id="cb11-6"><a href="#cb11-6"></a>    <span class="cf">return</span> (r <span class="op">*</span> <span class="fu">sqrt</span>(<span class="fl">1</span> <span class="op">-</span> z<span class="op">^</span><span class="fl">2</span>) <span class="op">*</span> <span class="fu">cos</span>(θ), r <span class="op">*</span> <span class="fu">sqrt</span>(<span class="fl">1</span> <span class="op">-</span> z<span class="op">^</span><span class="fl">2</span>) <span class="op">*</span> <span class="fu">sin</span>(θ), r <span class="op">*</span> z)</span>
+<span id="cb11-7"><a href="#cb11-7"></a><span class="kw">end</span></span>
+<span id="cb11-8"><a href="#cb11-8"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="10">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb12-1"><a href="#cb12-1"></a><span class="kw">function</span> <span class="fu">prob_func!</span>(p, scan_values, i)</span>
+<span id="cb12-2"><a href="#cb12-2"></a>    <span class="co"># Update velocity and position</span></span>
+<span id="cb12-3"><a href="#cb12-3"></a>    p.v <span class="op">.=</span> (scan_values.v[i], <span class="fl">0.0</span>, <span class="fl">0.1</span>) <span class="co">#sample_direction(inner_config.v[i])</span></span>
+<span id="cb12-4"><a href="#cb12-4"></a>    p.r0 <span class="op">.=</span> <span class="fu">rand</span>(uniform_dist, <span class="fl">3</span>)</span>
+<span id="cb12-5"><a href="#cb12-5"></a>    <span class="cf">return</span> <span class="cn">nothing</span></span>
+<span id="cb12-6"><a href="#cb12-6"></a><span class="kw">end</span></span>
+<span id="cb12-7"><a href="#cb12-7"></a><span class="kw">function</span> <span class="fu">param_func</span>(p, scan_values, i)</span>
+<span id="cb12-8"><a href="#cb12-8"></a>    <span class="cf">return</span> <span class="fu">round</span>(<span class="fu">norm</span>(p.v), digits<span class="op">=</span><span class="fl">3</span>)</span>
+<span id="cb12-9"><a href="#cb12-9"></a><span class="kw">end</span></span>
+<span id="cb12-10"><a href="#cb12-10"></a><span class="kw">function</span> <span class="fu">output_func</span>(p, sol)</span>
+<span id="cb12-11"><a href="#cb12-11"></a>    f <span class="op">=</span> p.force_last_period[<span class="fl">1</span>]</span>
+<span id="cb12-12"><a href="#cb12-12"></a>    <span class="cf">return</span> f</span>
+<span id="cb12-13"><a href="#cb12-13"></a><span class="kw">end</span></span>
+<span id="cb12-14"><a href="#cb12-14"></a>;</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="11">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb13-1"><a href="#cb13-1"></a>t_end <span class="op">=</span> <span class="fl">4</span>p.period<span class="op">+</span><span class="fl">1</span></span>
+<span id="cb13-2"><a href="#cb13-2"></a>tspan <span class="op">=</span> (<span class="fl">0</span>., t_end)</span>
+<span id="cb13-3"><a href="#cb13-3"></a>prob <span class="op">=</span> <span class="fu">ODEProblem</span>(ρ!, p.ρ<span class="fl">0</span>_vec, tspan, p, save_on<span class="op">=</span><span class="cn">false</span>) </span>
+<span id="cb13-4"><a href="#cb13-4"></a></span>
+<span id="cb13-5"><a href="#cb13-5"></a>vs <span class="op">=</span> <span class="fu">repeat</span>(<span class="fl">0</span><span class="op">:</span><span class="fl">0.1</span><span class="op">:</span><span class="fl">8</span>, <span class="fl">100</span>)</span>
+<span id="cb13-6"><a href="#cb13-6"></a>scan_values <span class="op">=</span> (v <span class="op">=</span> vs,)</span>
+<span id="cb13-7"><a href="#cb13-7"></a><span class="pp">@time</span> scan_params, forces <span class="op">=</span> <span class="fu">force_scan</span>(prob, scan_values, prob_func!, param_func, output_func);</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Progress: 100%|█████████████████████████████████████████| Time: 0:00:07</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  7.622535 seconds (9.40 M allocations: 630.333 MiB, 1.15% gc time, 49.15% compilation time)</code></pre>
+</div>
+</div>
+<div class="cell" data-execution_count="12">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode numberSource julia number-lines code-with-copy"><code class="sourceCode julia"><span id="cb16-1"><a href="#cb16-1"></a>vs, averaged_forces <span class="op">=</span> <span class="fu">average_forces</span>(scan_params, forces)</span>
+<span id="cb16-2"><a href="#cb16-2"></a><span class="fu">plot</span>(vs, <span class="fl">1e3</span> <span class="op">.*</span> averaged_forces, legend<span class="op">=</span><span class="cn">nothing</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display" data-execution_count="12">
+<p><img src="F1_to_F1_cooling_files/figure-html/cell-13-output-1.svg" class="img-fluid"></p>
+</div>
+</div>
 
 
+</section>
 </section>
 
 </main> <!-- /main -->

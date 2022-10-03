@@ -135,7 +135,7 @@ function force_scan(prob::T1, scan_values::T2, prob_func!::F1, param_func::F2, o
             batch_start_idx = 1 + ((i <= remainder) ? i : remainder) + batch_size * (i-1)
             for j ∈ batch_start_idx:(batch_start_idx + _batch_size)
                 prob_func!(_prob.p, scan_values, j)
-                sol = solve(_prob, alg=DP5(), callback=cb, abstol=1e-4)
+                sol = solve(_prob, alg=DP5(), callback=cb, abstol=1e-5)
                 params[j] = param_func(_prob.p, scan_values, j)
                 forces[j] = output_func(_prob.p, sol)
                 next!(prog_bar)
