@@ -12,6 +12,8 @@ website:
         contents:
           - text: "Blue-detuned MOT for CaOH"
             file: "ipynb_sources/Blue-detuned MOT (CaOH).ipynb"
+          - text: "$F_1 \rightarrow F_1$ cooling"
+            file: "ipynb_sources/F1_to_F1_cooling.ipynb"
 
 format:
   html:
