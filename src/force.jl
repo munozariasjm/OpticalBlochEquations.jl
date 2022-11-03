@@ -1,28 +1,69 @@
-import DifferentialEquations: ODEProblem, solve, DP5, PeriodicCallback, terminate!
+import DifferentialEquations: ODEProblem, solve, DP5, PeriodicCallback, CallbackSet, terminate!, remake
 import ProgressMeter: Progress, next!
 import Parameters: @unpack
 import Statistics: mean
 
-function force_noupdate(fields, d, d_nnz, ρ_soa, Γ)
+function force_noupdate(E_k, ds, ds_state1, ds_state2, ρ_soa)
     F = SVector(0.0, 0.0, 0.0)
 
-    @inbounds for i ∈ eachindex(fields)
-        s = fields.s[i]
-        x = sqrt(s) / (2 * √2)
-        k = fields.k[i]
-        E = fields.E[i]
-        ampl_factor = (x * im) * k
-        @inbounds for q ∈ 1:3
-            # With SI units, should be x = -h * Γ * sqrt(s) / (2 * √2 * p.λ)
-            ampl = ampl_factor * E[q]
-            # Note h * Γ / λ = 2π ħ * Γ / Λ = ħ * k * Γ, so this has units units of ħ k Γ
-            d_q = @view d[:,:,q]
-            d_nnz_q = d_nnz[q]
-            @inbounds for j ∈ d_nnz_q
-                F -= ampl * d_q[j] * conj(ρ_soa[j]) #+ conj(ampl * d_q[j] * ρ[j])
+    @inbounds for q ∈ 1:3
+        ds_q = ds[q]
+        ds_q_re = ds_q.re
+        ds_q_im = ds_q.im
+        ds_state1_q = ds_state1[q]
+        ds_state2_q = ds_state2[q]
+        for k ∈ 1:3
+            E_kq = E_k[k][q]
+            E_kq_re = real(E_kq)
+            E_kq_im = imag(E_kq)
+            F_k_re = 0.0
+            F_k_im = 0.0
+            for j ∈ eachindex(ds_q)
+                m = ds_state1_q[j]
+                n = ds_state2_q[j]
+                ρ_re =  ρ_soa.re[n,m]
+                ρ_conj_im = -ρ_soa.im[n,m]
+                d_re = ds_q_re[j]
+                d_im = ds_q_im[j]
+                a1 = d_re * ρ_re - d_im * ρ_conj_im
+                a2 = d_re * ρ_conj_im + d_im * ρ_re
+                F_k_re += E_kq_re * a1 + E_kq_im * a2
+                F_k_im += E_kq_im * a1 + E_kq_re * a2
             end
+            # F -= F_k_re * ê[k]
+            # F -= im * F_k_im * ê[k]
+            F -= (im * F_k_re - F_k_im) * ê[k] # multiply by im
         end
     end
+
+    # @inbounds for k ∈ 1:3
+    #     E_k = p.E_k[k]
+    #     @inbounds for q ∈ 1:3
+    #         d_q = @view d[:,:,q]
+    #         d_nnz_q = d_nnz[q]
+    #         @inbounds for j ∈ d_nnz_q
+    #             F -= E_k * d_q[j] * conj(ρ_soa[j])
+    #         end
+    #     end
+    # end
+
+    # @inbounds for i ∈ eachindex(fields)
+    #     s = fields.s[i]
+    #     x = sqrt(s) / (2 * √2)
+    #     k = fields.k[i]
+    #     E = fields.E[i]
+    #     ampl_factor = (x * im) * k
+    #     @inbounds for q ∈ 1:3
+    #         # With SI units, should be x = -h * Γ * sqrt(s) / (2 * √2 * p.λ)
+    #         ampl = ampl_factor * E[q]
+    #         # Note h * Γ / λ = 2π ħ * Γ / Λ = ħ * k * Γ, so this has units units of ħ k Γ
+    #         d_q = @view d[:,:,q]
+    #         d_nnz_q = d_nnz[q]
+    #         @inbounds for j ∈ d_nnz_q
+    #             F -= ampl * d_q[j] * conj(ρ_soa[j]) #+ conj(ampl * d_q[j] * ρ[j])
+    #         end
+    #     end
+    # end
     F += conj(F)
     return real.(F)
 end
@@ -105,16 +146,21 @@ export find_idx_for_time
 # Implement a periodic callback to reset the force each period
 function reset_force!(integrator)
     force_current_period = integrator.u[end-2:end] / integrator.p.period
-    force_diff = abs.(force_current_period - integrator.p.force_last_period)
+    force_diff = abs(norm(force_current_period) - norm(integrator.p.force_last_period))
+    force_diff_rel = force_diff / norm(integrator.p.force_last_period)
     integrator.p.force_last_period = force_current_period
-    force_tol = 1e-6
-    if force_diff[1] < force_tol && force_diff[2] < force_tol && force_diff[3] < force_tol
+    force_reltol = 1e-2
+    # println(force_diff_rel)
+    # println(force_current_period)
+    # println(force_diff)
+    if (force_diff_rel < force_reltol) #|| (force_diff < 1e-6)
         terminate!(integrator)
     else
         integrator.u[end-2:end] .= 0.0
     end
     return nothing
 end
+export reset_force!
 
 function force_scan(prob::T1, scan_values::T2, prob_func!::F1, param_func::F2, output_func::F3; n_threads=Threads.nthreads()) where {T1,T2,F1,F2,F3}
 
@@ -124,23 +170,32 @@ function force_scan(prob::T1, scan_values::T2, prob_func!::F1, param_func::F2, o
     params = zeros(Float64, n_values)
     forces = zeros(Float64, n_values)
 
-    cb = PeriodicCallback(reset_force!, prob.p.period)
     prog_bar = Progress(n_values)
 
-    @sync for i ∈ 1:n_threads
-        _prob = deepcopy(prob)
-        Threads.@spawn begin
-            prob_func!(_prob.p, scan_values, i)
-            _batch_size = i <= remainder ? (batch_size + 1) : batch_size - 1
-            batch_start_idx = 1 + ((i <= remainder) ? i : remainder) + batch_size * (i-1)
-            for j ∈ batch_start_idx:(batch_start_idx + _batch_size)
-                prob_func!(_prob.p, scan_values, j)
-                sol = solve(_prob, alg=DP5(), callback=cb, abstol=1e-5)
-                params[j] = param_func(_prob.p, scan_values, j)
-                forces[j] = output_func(_prob.p, sol)
-                next!(prog_bar)
-            end
+    Threads.@threads for i ∈ 1:n_threads
+        prob_copy = deepcopy(prob)
+        # Threads.@spawn begin
+            # prob_func!(_prob, scan_values, i)
+        force_cb = PeriodicCallback(reset_force!, prob_copy.p.period)
+        if :callback ∈ keys(prob_copy.kwargs)
+            cbs = prob_copy.kwargs[:callback]
+            prob_copy = remake(prob_copy, callback=CallbackSet(cbs, force_cb))
+        else
+            prob_copy = remake(prob_copy, callback=force_cb)
         end
+        _batch_size = i <= remainder ? (batch_size + 1) : batch_size - 1
+        batch_start_idx = 1 + ((i <= remainder) ? i : remainder) + batch_size * (i-1)
+        for j ∈ batch_start_idx:(batch_start_idx + _batch_size)
+            prob_j = prob_func!(prob_copy, scan_values, j)
+            sol = solve(prob_j, alg=DP5())
+            params[j] = param_func(prob_j, scan_values, j)
+            forces[j] = output_func(prob_j.p, sol)
+            prob_j.p.force_last_period = (0, 0, 0)
+            # print(sol.t[end])
+            next!(prog_bar)
+        end
+            # return
+        # end
     end
     return params, forces
 end
