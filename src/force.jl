@@ -19,16 +19,26 @@ function force_noupdate(E_k, ds, ds_state1, ds_state2, ρ_soa)
             F_k_re = 0.0
             F_k_im = 0.0
             for j ∈ eachindex(ds_q)
-                m = ds_state1_q[j]
-                n = ds_state2_q[j]
-                ρ_re =  ρ_soa.re[n,m]
-                ρ_conj_im = -ρ_soa.im[n,m]
+                m = ds_state1_q[j] # excited state
+                n = ds_state2_q[j] # ground state
+                ρ_re = ρ_soa.re[m,n]
+                ρ_im = ρ_soa.im[m,n]
                 d_re = ds_q_re[j]
                 d_im = ds_q_im[j]
-                a1 = d_re * ρ_re - d_im * ρ_conj_im
-                a2 = d_re * ρ_conj_im + d_im * ρ_re
-                F_k_re += E_kq_re * a1 + E_kq_im * a2
+                a1 = d_re * ρ_re - d_im * ρ_im
+                a2 = d_re * ρ_im + d_im * ρ_re
+                F_k_re += E_kq_re * a1 - E_kq_im * a2
                 F_k_im += E_kq_im * a1 + E_kq_re * a2
+                # m = ds_state1_q[j]
+                # n = ds_state2_q[j]
+                # ρ_re = ρ_soa.re[n,m]
+                # ρ_im = ρ_soa.im[n,m]
+                # d_re = ds_q_re[j]
+                # d_im = ds_q_im[j]
+                # a1 = d_re * ρ_re - d_im * ρ_im
+                # a2 = d_re * ρ_im + d_im * ρ_re
+                # F_k_re += E_kq_re * a1 - E_kq_im * a2
+                # F_k_im += E_kq_im * a1 + E_kq_re * a2                
             end
             # F -= F_k_re * ê[k]
             # F -= im * F_k_im * ê[k]
@@ -149,14 +159,16 @@ function reset_force!(integrator)
     force_diff = abs(norm(force_current_period) - norm(integrator.p.force_last_period))
     force_diff_rel = force_diff / norm(integrator.p.force_last_period)
     integrator.p.force_last_period = force_current_period
+    
+    n = length(integrator.p.states)^2
+    integrator.p.populations .= integrator.u[n+1:end-3] / integrator.p.period
+
     force_reltol = 1e-2
-    # println(force_diff_rel)
-    # println(force_current_period)
-    # println(force_diff)
     if (force_diff_rel < force_reltol) #|| (force_diff < 1e-6)
         terminate!(integrator)
     else
         integrator.u[end-2:end] .= 0.0
+        integrator.u[n+1:end-3] .= 0.0
     end
     return nothing
 end
@@ -169,6 +181,7 @@ function force_scan(prob::T1, scan_values::T2, prob_func!::F1, param_func::F2, o
     remainder = n_values - batch_size * n_threads
     params = zeros(Float64, n_values)
     forces = zeros(Float64, n_values)
+    populations = zeros(Float64, n_values, length(prob.p.states))
 
     prog_bar = Progress(n_values)
 
@@ -191,13 +204,15 @@ function force_scan(prob::T1, scan_values::T2, prob_func!::F1, param_func::F2, o
             params[j] = param_func(prob_j, scan_values, j)
             forces[j] = output_func(prob_j.p, sol)
             prob_j.p.force_last_period = (0, 0, 0)
-            # print(sol.t[end])
+
+            populations[j,:] .= prob_j.p.populations
+
             next!(prog_bar)
         end
             # return
         # end
     end
-    return params, forces
+    return params, forces, populations
 end
 export force_scan
 
@@ -231,14 +246,14 @@ export force_scan
 # export force_scan
 
 idx_finder = x->findall.(.==(unique(x)), Ref(x) )
-function average_forces(params, forces)
+function average_values(params, scan_values)
     unique_params = unique(params)
     params_idxs = idx_finder(params)
-    average_forces = zeros(length(unique_params))
+    averaged_values = zeros(length(unique_params), size(scan_values, 2))
     for (i, (param, idxs)) ∈ enumerate(zip(unique_params, params_idxs))
-        param_forces = forces[idxs]
-        average_forces[i] = mean(param_forces)
+        param_scan_values = scan_values[idxs,:]
+        averaged_values[i,:] = mean(param_scan_values, dims=1)
     end
-    return unique_params, average_forces
+    return unique_params, averaged_values
 end
-export average_forces
+export average_values

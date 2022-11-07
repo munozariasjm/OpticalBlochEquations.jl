@@ -3,6 +3,11 @@ const cart2sph = @SMatrix [
     0 0 1
     -1/√2 +im/√2 0;
 ]
+# const cart2sph = @SMatrix [
+#     -1/√2 +1/√2 0;
+#     0 0 1
+#     +im/√2 +im/√2 0;
+# ]
 export cart2sph
 
 const sph2cart = inv(cart2sph)

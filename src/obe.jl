@@ -1,7 +1,7 @@
 import MutableNamedTuples: MutableNamedTuple
 import StructArrays: StructArray, StructVector
 import StaticArrays: @SVector
-import LinearAlgebra: norm, ⋅, adjoint!
+import LinearAlgebra: norm, ⋅, adjoint!, diag
 import LoopVectorization: @turbo
 
 export Particle, schrödinger, obe
@@ -215,7 +215,9 @@ function obe(ρ0, particle, states, fields, d, d_m, should_round_freqs, include_
     ds = [StructArray(ds[1]), StructArray(ds[2]), StructArray(ds[3])]
 
     # The last 3 indices are for the force
-    ρ0_vec = [[ρ0[i] for i ∈ eachindex(ρ0)]; zeros(3)]
+    populations = diag(ρ0)
+    # ρ0_vec = [[ρ0[i] for i ∈ eachindex(ρ0)]; zeros(3)]
+    ρ0_vec = [[ρ0[i] for i ∈ eachindex(ρ0)]; populations; zeros(3)]
 
     force_last_period = SVector(0.0, 0.0, 0.0)
 
@@ -230,9 +232,9 @@ function obe(ρ0, particle, states, fields, d, d_m, should_round_freqs, include_
 
     p = MutableNamedTuple(
         H=H, particle=particle, ρ0=ρ0, ρ0_vec=ρ0_vec, ρ_soa=ρ_soa, dρ_soa=dρ_soa, Js=Js, eiωt=eiωt, ω=ω,
-        states=states, fields=fields, r0=r0, r=r, v=v, Γ=Γ, tmp=tmp, λ=λ, d_m=d_m,
+        states=states, fields=fields, r0=r0, r=r, v=v, Γ=Γ, tmp=tmp, λ=λ,
         period=period, B=B, k=k, freq_res=freq_res, H₀=H₀,
-        force_last_period=force_last_period,
+        force_last_period=force_last_period, populations=populations,
         d=d, d_nnz=d_nnz,
         E=E, E_k=E_k,
         ds=ds, ds_state1=ds_state1, ds_state2=ds_state2, extra_p=extra_p)
@@ -241,7 +243,7 @@ function obe(ρ0, particle, states, fields, d, d_m, should_round_freqs, include_
 end
 export obe
 
-function update_H!(p, τ, r, H₀, ω, fields, H, E_k, ds, ds_state1, ds_state2, B, d_m, Js, Γ)
+function update_H!(p, τ, r, H₀, ω, fields, H, E_k, ds, ds_state1, ds_state2, B, Js, Γ)
 
     @turbo for i in eachindex(H)
         H.re[i] = H₀.re[i]
@@ -305,8 +307,8 @@ function update_H!(p, τ, r, H₀, ω, fields, H, E_k, ds, ds_state1, ds_state2,
             ds_state1_q = ds_state1[q]
             ds_state2_q = ds_state2[q]
             @turbo for i ∈ eachindex(ds_q)
-                m = ds_state1_q[i]
-                n = ds_state2_q[i]
+                m = ds_state1_q[i] # excited state
+                n = ds_state2_q[i] # ground state
                 d_re = ds_q_re[i]
                 d_im = ds_q_im[i]
                 val_re = E_q_re * d_re - E_q_im * d_im
@@ -339,20 +341,20 @@ function update_H!(p, τ, r, H₀, ω, fields, H, E_k, ds, ds_state1, ds_state2,
     end
 
     # Add Zeeman interaction terms, need to optimize this
-    @inbounds for q ∈ 1:3
-        B_q = 2π * (B ⋅ ϵ_cart[q]) # the amount of B-field projected into each spherical component, which are already written in a Cartesian basis
-        if abs(B_q) > 1e-10
-            for j ∈ axes(H,2), i ∈ axes(H,1)
-                val = B_q * d_m[i,j,4-q]
-                if j > i
-                    H[i,j] -= val
-                    H[j,i] -= conj(val)
-                elseif i == j
-                    H[i,j] -= val
-                end
-            end
-        end
-    end
+    # @inbounds for q ∈ 1:3
+    #     B_q = 2π * (B ⋅ ϵ_cart[q]) # the amount of B-field projected into each spherical component, which are already written in a Cartesian basis
+    #     if abs(B_q) > 1e-10
+    #         for j ∈ axes(H,2), i ∈ axes(H,1)
+    #             val = B_q * d_m[i,j,4-q]
+    #             if j > i
+    #                 H[i,j] -= val
+    #                 H[j,i] -= conj(val)
+    #             elseif i == j
+    #                 H[i,j] -= val
+    #             end
+    #         end
+    #     end
+    # end
 
     return nothing
 end
@@ -477,14 +479,14 @@ Evaluates the change in the density matrix `dρ` given the current density matri
 """
 function ρ!(dρ, ρ, p, τ)
 
-    @unpack H, H₀, E, E_k, B, dρ_soa, ρ_soa, tmp, Js, eiωt, ω, fields, ds, ds_state1, ds_state2, d_m, Γ, r, r0, v, Js = p
+    @unpack H, H₀, E, E_k, B, dρ_soa, ρ_soa, tmp, Js, eiωt, ω, fields, ds, ds_state1, ds_state2, Γ, r, r0, v, Js = p
 
     r .= r0 .+ v * τ
 
     base_to_soa!(ρ, ρ_soa)
 
     # Update the Hamiltonian according to the new time τ
-    update_H!(p, τ, r, H₀, ω, fields, H, E_k, ds, ds_state1, ds_state2, B, d_m, Js, Γ)
+    update_H!(p, τ, r, H₀, ω, fields, H, E_k, ds, ds_state1, ds_state2, B, Js, Γ)
 
     # Apply a transformation to go to the Heisenberg picture
     update_eiωt!(eiωt, ω, τ)
@@ -513,6 +515,10 @@ function ρ!(dρ, ρ, p, τ)
     Heisenberg!(dρ_soa, eiωt, -1)
     soa_to_base!(dρ, dρ_soa)
 
+    n = length(ρ_soa)
+    for i ∈ axes(ρ_soa, 1)
+        dρ[n+i] = ρ_soa[i,i]
+    end
     dρ[end-2:end] = force_noupdate(E_k, ds, ds_state1, ds_state2, ρ_soa)
 
     return nothing

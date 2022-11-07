@@ -26,7 +26,7 @@ end
 export Field
 
 function update_fields!(fields::StructVector{Field{T,F}}, r, t) where {T,F}
-    # Fields are represented as ϵ_q * exp(i(kr - ωt)), where ϵ_q is in spherical coordinates
+    # Fields are represented as ϵ_q * exp(i(ωt - kr)), where ϵ_q is in spherical coordinates
     for i ∈ eachindex(fields)
         k = fields.k[i]
         fields.kr[i] = k ⋅ r
@@ -37,7 +37,7 @@ function update_fields!(fields::StructVector{Field{T,F}}, r, t) where {T,F}
     end
     for i ∈ eachindex(fields)
         val = (fields.re[i] + im * fields.im[i]) .* fields.ϵ_val[i]
-        fields.E[i] = val
+        fields.E[i] = val #* cos(fields.ω[i] * t)
     end
     return nothing
 end
