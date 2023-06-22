@@ -7,6 +7,8 @@ include("constants.jl")
 include("laser.jl")
 include("field.jl")
 include("force.jl")
+include("Hamiltonian.jl")
 include("obe.jl")
+include("Schrodinger.jl")
 
 end

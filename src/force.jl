@@ -1,7 +1,7 @@
 import DifferentialEquations: ODEProblem, solve, DP5, PeriodicCallback, CallbackSet, terminate!, remake
 import ProgressMeter: Progress, next!
 import Parameters: @unpack
-import Statistics: mean
+import Statistics: mean, std
 
 function force_noupdate(E_k, ds, ds_state1, ds_state2, ρ_soa)
     F = SVector(0.0, 0.0, 0.0)
@@ -216,44 +216,55 @@ function force_scan(prob::T1, scan_values::T2, prob_func!::F1, param_func::F2, o
 end
 export force_scan
 
-# function force_scan(prob, scan_values::T, prob_func!::F1, param_func::F2, output_func::F3; n_threads=Threads.nthreads()) where {T,F1,F2,F3}
-
-#     n_values = length(first(scan_values))
-#     batch_size = fld(n_values, n_threads)
-#     remainder = n_values - batch_size * n_threads
-#     params = zeros(Float64, n_values)
-#     forces = zeros(Float64, n_values)
-
-#     prog_bar = Progress(n_values)
-
-#     @sync for i ∈ 1:n_threads
-#         _prob = deepcopy(prob)
-#         Threads.@spawn begin
-#             prob_func!(_prob.p, scan_values, i)
-#             _batch_size = i <= remainder ? (batch_size + 1) : batch_size - 1
-#             batch_start_idx = 1 + ((i <= remainder) ? i : remainder) + batch_size * (i-1)
-#             for j ∈ batch_start_idx:(batch_start_idx + _batch_size)
-#                 prob_func!(_prob.p, scan_values, j)
-#                 sol = solve(_prob, alg=DP5(), abstol=1e-4)
-#                 params[j] = param_func(_prob.p, scan_values, j)
-#                 forces[j] = output_func(_prob.p, sol)
-#                 next!(prog_bar)
-#             end
-#         end
-#     end
-#     return params, forces
-# end
-# export force_scan
-
 idx_finder = x->findall.(.==(unique(x)), Ref(x) )
 function average_values(params, scan_values)
     unique_params = unique(params)
     params_idxs = idx_finder(params)
     averaged_values = zeros(length(unique_params), size(scan_values, 2))
+    stddev_values = zeros(length(unique_params), size(scan_values, 2))
     for (i, (param, idxs)) ∈ enumerate(zip(unique_params, params_idxs))
         param_scan_values = scan_values[idxs,:]
         averaged_values[i,:] = mean(param_scan_values, dims=1)
+        stddev_values[i,:] = std(param_scan_values, dims=1)
     end
-    return unique_params, averaged_values
+    return unique_params, averaged_values, stddev_values
 end
 export average_values
+
+function force_scan_v2(prob::T1, scan_values::T2, prob_func!::F1, output_func::F2; n_threads=Threads.nthreads()) where {T1,T2,F1,F2}
+
+    n_values = reduce(*, size(scan_values))
+    batch_size = fld(n_values, n_threads)
+    remainder = n_values - batch_size * n_threads
+    forces = Array{SVector{3, Float64}}(undef, n_values)
+    populations = zeros(Float64, n_values, length(prob.p.states))
+
+    prog_bar = Progress(n_values)
+
+    Threads.@threads for i ∈ 1:n_threads
+        prob_copy = deepcopy(prob)
+        # Threads.@spawn begin
+            # prob_func!(_prob, scan_values, i)
+        force_cb = PeriodicCallback(reset_force!, prob_copy.p.period)
+        if :callback ∈ keys(prob_copy.kwargs)
+            cbs = prob_copy.kwargs[:callback]
+            prob_copy = remake(prob_copy, callback=CallbackSet(cbs, force_cb))
+        else
+            prob_copy = remake(prob_copy, callback=force_cb)
+        end
+        _batch_size = i <= remainder ? (batch_size + 1) : batch_size - 1
+        batch_start_idx = 1 + ((i <= remainder) ? i : remainder) + batch_size * (i-1)
+        for j ∈ batch_start_idx:(batch_start_idx + _batch_size)
+            prob_j = prob_func!(prob_copy, scan_values, j)
+            sol = solve(prob_j, alg=DP5())
+            forces[j] = output_func(prob_j.p, sol)
+            prob_j.p.force_last_period = (0, 0, 0)
+
+            populations[j,:] .= prob_j.p.populations
+
+            next!(prog_bar)
+        end
+    end
+    return forces, populations
+end
+export force_scan_v2
