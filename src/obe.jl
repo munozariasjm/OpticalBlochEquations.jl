@@ -23,7 +23,7 @@ end
 end
 
 # Round `val` to the nearest multiple of `prec`
-round_to_mult(val, prec) = (inv_prec = 1 / prec; round.(val * inv_prec) / inv_prec)
+round_to_mult(val, prec) = round.(val ./ prec) .* prec
 
 function round_freq(ω, freq_res)
     ω_min = freq_res
@@ -77,7 +77,7 @@ function obe(ρ0, particle, states, fields, d, d_m, should_round_freqs, include_
     
     k = 2π / λ
     particle.r0 *= 2π #(1 / k)  # `r` is in units of 1/k
-    particle.v /= (Γ / k) #(Γ / k)   # velocity is in units of Γ/k
+    particle.v /= (Γ / k) # velocity is in units of Γ/k
     # Convert to angular frequencies
     for i ∈ eachindex(fields)
         fields.ω[i] /= Γ
@@ -98,7 +98,6 @@ function obe(ρ0, particle, states, fields, d, d_m, should_round_freqs, include_
 
     type_complex = ComplexF64
 
-    B = MVector(0.0, 0.0, 0.0)
     H = StructArray( zeros(type_complex, n_states, n_states) )
 
     ω = [state.E for state ∈ states]
@@ -136,7 +135,6 @@ function obe(ρ0, particle, states, fields, d, d_m, should_round_freqs, include_
 
     # The last 3 indices are for the force
     populations = diag(ρ0)
-    # ρ0_vec = [[ρ0[i] for i ∈ eachindex(ρ0)]; zeros(3)]
     ρ0_vec = [[ρ0[i] for i ∈ eachindex(ρ0)]; populations; zeros(3)]
 
     force_last_period = SVector(0.0, 0.0, 0.0)
@@ -153,11 +151,12 @@ function obe(ρ0, particle, states, fields, d, d_m, should_round_freqs, include_
     p = MutableNamedTuple(
         H=H, particle=particle, ρ0=ρ0, ρ0_vec=ρ0_vec, ρ_soa=ρ_soa, dρ_soa=dρ_soa, Js=Js, eiωt=eiωt, ω=ω,
         states=states, fields=fields, r0=r0, r=r, v=v, Γ=Γ, tmp=tmp, λ=λ,
-        period=period, B=B, k=k, freq_res=freq_res, H₀=H₀,
+        period=period, k=k, freq_res=freq_res, H₀=H₀,
         force_last_period=force_last_period, populations=populations,
         d=d, d_nnz=d_nnz,
         E=E, E_k=E_k,
-        ds=ds, ds_state1=ds_state1, ds_state2=ds_state2, extra_p=extra_p)
+        ds=ds, ds_state1=ds_state1, ds_state2=ds_state2, update_H=update_H,
+        extra_p=extra_p)
 
     return p
 end
@@ -260,7 +259,7 @@ Evaluates the change in the density matrix `dρ` given the current density matri
 """
 function ρ!(dρ, ρ, p, τ)
 
-    @unpack H, H₀, E, E_k, B, dρ_soa, ρ_soa, tmp, Js, eiωt, ω, fields, ds, ds_state1, ds_state2, Γ, r, r0, v, Js = p
+    @unpack H, H₀, E, E_k, dρ_soa, ρ_soa, tmp, Js, eiωt, ω, fields, ds, ds_state1, ds_state2, Γ, r, r0, v, Js = p
 
     r .= r0 .+ v * τ
 
@@ -273,7 +272,7 @@ function ρ!(dρ, ρ, p, τ)
     update_eiωt!(eiωt, ω, τ)
     Heisenberg!(ρ_soa, eiωt)
 
-    # # Compute coherent evolution terms
+    # Compute coherent evolution terms
     im_commutator!(dρ_soa, H, ρ_soa, tmp)
 
     # Add the terms ∑ᵢJᵢρJᵢ†

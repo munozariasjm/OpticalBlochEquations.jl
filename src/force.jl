@@ -163,7 +163,7 @@ function reset_force!(integrator)
     n = length(integrator.p.states)^2
     integrator.p.populations .= integrator.u[n+1:end-3] / integrator.p.period
 
-    force_reltol = 1e-2
+    force_reltol = 1e-5
     if (force_diff_rel < force_reltol) #|| (force_diff < 1e-6)
         terminate!(integrator)
     else
