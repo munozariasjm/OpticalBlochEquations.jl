@@ -196,9 +196,9 @@ function force_scan(prob::T1, scan_values::T2, prob_func!::F1, param_func::F2, o
         else
             prob_copy = remake(prob_copy, callback=force_cb)
         end
-        _batch_size = i <= remainder ? (batch_size + 1) : batch_size - 1
-        batch_start_idx = 1 + ((i <= remainder) ? i : remainder) + batch_size * (i-1)
-        for j ∈ batch_start_idx:(batch_start_idx + _batch_size)
+        _batch_size = i <= remainder ? (batch_size + 1) : batch_size
+        batch_start_idx = 1 + (i <= remainder ? (i - 1) : remainder) + batch_size * (i-1)
+        for j ∈ batch_start_idx:(batch_start_idx + _batch_size - 1)
             prob_j = prob_func!(prob_copy, scan_values, j)
             sol = solve(prob_j, alg=DP5())
             params[j] = param_func(prob_j, scan_values, j)
@@ -252,9 +252,9 @@ function force_scan_v2(prob::T1, scan_values::T2, prob_func!::F1, output_func::F
         else
             prob_copy = remake(prob_copy, callback=force_cb)
         end
-        _batch_size = i <= remainder ? (batch_size + 1) : batch_size - 1
-        batch_start_idx = 1 + ((i <= remainder) ? i : remainder) + batch_size * (i-1)
-        for j ∈ batch_start_idx:(batch_start_idx + _batch_size)
+        _batch_size = i <= remainder ? (batch_size + 1) : batch_size
+        batch_start_idx = 1 + (i <= remainder ? (i - 1) : remainder) + batch_size * (i-1)
+        for j ∈ batch_start_idx:(batch_start_idx + _batch_size - 1)
             prob_j = prob_func!(prob_copy, scan_values, j)
             sol = solve(prob_j, alg=DP5())
             forces[j] = output_func(prob_j.p, sol)

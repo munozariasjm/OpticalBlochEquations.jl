@@ -76,8 +76,8 @@ function obe(ρ0, particle, states, fields, d, d_m, should_round_freqs, include_
     end
     
     k = 2π / λ
-    particle.r0 *= 2π #(1 / k)  # `r` is in units of 1/k
-    particle.v /= (Γ / k) # velocity is in units of Γ/k
+    # particle.r0 *= 2π #(1 / k)  # `r` is in units of 1/k
+    # particle.v /= (Γ / k) # velocity is in units of Γ/k
     # Convert to angular frequencies
     for i ∈ eachindex(fields)
         fields.ω[i] /= Γ
@@ -117,13 +117,14 @@ function obe(ρ0, particle, states, fields, d, d_m, should_round_freqs, include_
     d_nnz_p = [cart_idx for cart_idx ∈ findall(d[:,:,3] .!= 0) if cart_idx[2] >= cart_idx[1]]
     d_nnz = [d_nnz_m, d_nnz_0, d_nnz_p]
 
+    # Create jumps corresponding to spontaneous decay
     Js = Array{Jump}(undef, 0)
     ds = [Complex{Float64}[], Complex{Float64}[], Complex{Float64}[]]
     ds_state1 = [Int64[], Int64[], Int64[]]
     ds_state2 = [Int64[], Int64[], Int64[]]
     for s′ in eachindex(states), s in s′:n_states, q in qs
         dme = d[s′, s, q+2]
-        if (abs(dme) > 1e-10) #& (states[s′].E < states[s].E) # only energy-allowed jumps are generated
+        if abs(dme) > 1e-10 #& (states[s′].E < states[s].E) # only energy-allowed jumps are generated
             push!(ds_state1[q+2], s)
             push!(ds_state2[q+2], s′)
             push!(ds[q+2], dme)
@@ -405,7 +406,7 @@ end
 #     (1/2)*(1 - cosβ)*exp(im*(α - γ)) (1/√2)*sinβ*exp(im*α) (1/2)*(1 + cosβ)*exp(im*(α + γ))
 # ]
 function D(cosβ, sinβ, α, γ)
-    γ = -γ
+    # γ = -γ
     # Sign convention is different from the matrix above 
     return [
         (1/2)*(1 + cosβ)*exp(-im*(α + γ)) -(1/√2)*sinβ*exp(-im*α) (1/2)*(1 - cosβ)*exp(-im*(α - γ));
@@ -414,18 +415,62 @@ function D(cosβ, sinβ, α, γ)
     ]
 end
 
+using LinearAlgebra: cross
+
 function rotate_pol(pol, k)::SVector{3, Complex{Float64}}
     # Rotates polarization `pol` onto the quantization axis `k`
-    k = k / norm(k)
-    cosβ = k[3]
-    sinβ = sqrt(1 - cosβ^2)
-    α = 0.0
-    if abs(cosβ) < 1
-        γ = atan(k[2], k[1])
+    k /= norm(k)
+    
+    # Find the axis-angle rotation corresponding to the rotation
+    x,y,z = cross(k, ẑ)
+    θ = acos(k ⋅ ẑ)
+
+    # println(x,y,z)
+    # println(θ)
+
+    if θ ≈ 0
+        α = 0.
+        β = 0.
+        γ = 0.
+    elseif θ ≈ π
+        α = 0.
+        β = π
+        γ = 0.
     else
-        γ = 0.0
+
+        # α = atan(y * sin(θ) - x * z * (1 - cos(θ)), 1 - (y^2 + z^2) * (1 - cos(θ)))
+        # β = asin(x * y * (1 - cos(θ)) + z * sin(θ))
+        # γ = atan(x * sin(θ) - y * z * (1 - cos(θ)), 1 - (x^2 + z^2) * (1 - cos(θ)))
+
+        A33 = (1 - cos(θ)) * z^2 + cos(θ)
+        A31 = (1 - cos(θ)) * z * x - y * sin(θ)
+        A32 = (1 - cos(θ)) * z * y + x * sin(θ)
+        A13 = (1 - cos(θ)) * x * z + y * sin(θ)
+        A23 = (1 - cos(θ)) * y * z - x * sin(θ)
+
+        β = acos(A33)
+
+        # println(A31, " ", A32)
+        α = atan(A31, A32)
+
+        # println(A13, " ", A23)
+        γ = -atan(A13, A23)
+
     end
-    return inv(D(cosβ, sinβ, α, γ)) * pol
+    # print(α, " ", β, " ", γ)
+
+    # k = k / norm(k)
+    # cosβ = k[3]
+    # sinβ = sqrt(1 - cosβ^2)
+    # α = 0.0
+    # if abs(cosβ) < 1
+    #     γ = atan(k[2], k[1])
+    # else
+    #     γ = 0.0
+    # end
+    # return inv(D(cosβ, sinβ, α, γ)) * pol
+
+    return inv(D(cos(β), sin(β), α, γ)) * pol
 end
 export rotate_pol
 
