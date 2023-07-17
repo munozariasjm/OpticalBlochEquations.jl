@@ -89,7 +89,7 @@ function ψ!(dψ, ψ, p, τ)
     update_H!(p, τ, r, H₀, fields, H, E_k, ds, ds_state1, ds_state2, Js)
     
     update_eiωt!(eiωt, ω, τ)
-    # Heisenberg!(H, eiωt, -1)
+    Heisenberg!(H, eiωt, -1)
     # Heisenberg_ψ!(p.ψ_soa, eiωt, -1)
 
     mul_by_im_minus!(ψ_soa)
