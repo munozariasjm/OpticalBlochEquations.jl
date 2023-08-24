@@ -29,7 +29,8 @@ export ϵ_cart
 
 const σ⁻ = SVector{3, ComplexF64}(1.0, 0.0, 0.0)
 const σ⁺ = SVector{3, ComplexF64}(0.0, 0.0, 1.0)
-export σ⁻, σ⁺
+const σ⁰ = SVector{3, ComplexF64}(0.0, 1.0, 0.0)
+export σ⁻, σ⁺, σ⁰
 
 const qs = @SVector [-1, 0, 1]
 export qs

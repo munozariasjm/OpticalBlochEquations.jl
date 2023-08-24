@@ -163,7 +163,7 @@ function reset_force!(integrator)
     n = length(integrator.p.states)^2
     integrator.p.populations .= integrator.u[n+1:end-3] / integrator.p.period
 
-    force_reltol = 1e-5
+    force_reltol = 1e-2
     if (force_diff_rel < force_reltol) #|| (force_diff < 1e-6)
         terminate!(integrator)
     else
@@ -198,7 +198,8 @@ function force_scan(prob::T1, scan_values::T2, prob_func!::F1, param_func::F2, o
         end
         _batch_size = i <= remainder ? (batch_size + 1) : batch_size
         batch_start_idx = 1 + (i <= remainder ? (i - 1) : remainder) + batch_size * (i-1)
-        for j ∈ batch_start_idx:(batch_start_idx + _batch_size - 1)
+        batch_idxs = batch_start_idx:(batch_start_idx + _batch_size - 1)
+        for j ∈ batch_idxs
             prob_j = prob_func!(prob_copy, scan_values, j)
             sol = solve(prob_j, alg=DP5())
             params[j] = param_func(prob_j, scan_values, j)

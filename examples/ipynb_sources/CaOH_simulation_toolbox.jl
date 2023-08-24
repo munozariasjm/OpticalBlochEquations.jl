@@ -1080,7 +1080,7 @@ function get_SrF_Hamiltonian()
     _μB = (μ_B / h) * (1e-6 * 1e-4)
     Zeeman_z(state, state′) = Zeeman(state, state′, 0)
     SrF_000_N0to3_Hamiltonian = add_to_H(SrF_000_N0to3_Hamiltonian, :B_z, gS * _μB * Zeeman_z)
-    SrF_000_N0to3_Hamiltonian.parameters.B_z = 1e-3 #todo
+    SrF_000_N0to3_Hamiltonian.parameters.B_z = 0.0 #todo
 
     full_evaluate!(SrF_000_N0to3_Hamiltonian)
     QuantumStates.solve!(SrF_000_N0to3_Hamiltonian)

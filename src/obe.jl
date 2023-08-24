@@ -124,7 +124,8 @@ function obe(ρ0, particle, states, fields, d, d_m, should_round_freqs, include_
     ds_state2 = [Int64[], Int64[], Int64[]]
     for s′ in eachindex(states), s in s′:n_states, q in qs
         dme = d[s′, s, q+2]
-        if abs(dme) > 1e-10 #& (states[s′].E < states[s].E) # only energy-allowed jumps are generated
+        if abs(dme) > 1e-10 && (states[s′].E + 3 / 2π < states[s].E) # only energy-allowed jumps are generated
+        # if (states[s′].E < states[s].E) # only energy-allowed jumps are generated
             push!(ds_state1[q+2], s)
             push!(ds_state2[q+2], s′)
             push!(ds[q+2], dme)
