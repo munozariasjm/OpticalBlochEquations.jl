@@ -163,7 +163,7 @@ function reset_force!(integrator)
     n = length(integrator.p.states)^2
     integrator.p.populations .= integrator.u[n+1:end-3] / integrator.p.period
 
-    force_reltol = 1e-2
+    force_reltol = 1e-3
     if (force_diff_rel < force_reltol) #|| (force_diff < 1e-6)
         terminate!(integrator)
     else
@@ -269,41 +269,3 @@ function force_scan_v2(prob::T1, scan_values::T2, prob_func!::F1, output_func::F
     return forces, populations
 end
 export force_scan_v2
-
-function force_scan_v3(prob::T1, scan_values::T2, prob_func!::F1, output_func::F2; n_threads=Threads.nthreads()) where {T1,T2,F1,F2}
-
-    n_values = reduce(*, size(scan_values))
-    batch_size = fld(n_values, n_threads)
-    remainder = n_values - batch_size * n_threads
-    forces = Array{SVector{3, Float64}}(undef, size(scan_values))
-    populations = Array{SVector{length(prob.p.states), Float64}}(undef, size(scan_values))
-
-    prog_bar = Progress(n_values)
-
-    Threads.@threads for i ∈ 1:n_threads
-        prob_copy = deepcopy(prob)
-        # Threads.@spawn begin
-            # prob_func!(_prob, scan_values, i)
-        force_cb = PeriodicCallback(reset_force!, prob_copy.p.period)
-        if :callback ∈ keys(prob_copy.kwargs)
-            cbs = prob_copy.kwargs[:callback]
-            prob_copy = remake(prob_copy, callback=CallbackSet(cbs, force_cb))
-        else
-            prob_copy = remake(prob_copy, callback=force_cb)
-        end
-        _batch_size = i <= remainder ? (batch_size + 1) : batch_size
-        batch_start_idx = 1 + (i <= remainder ? (i - 1) : remainder) + batch_size * (i-1)
-        for j ∈ batch_start_idx:(batch_start_idx + _batch_size - 1)
-            prob_j = prob_func!(prob_copy, scan_values, j)
-            sol = solve(prob_j, alg=DP5())
-            forces[j] = output_func(prob_j.p, sol)
-            prob_j.p.force_last_period = (0, 0, 0)
-
-            populations[j] = prob_j.p.populations
-
-            next!(prog_bar)
-        end
-    end
-    return forces, populations
-end
-export force_scan_v3

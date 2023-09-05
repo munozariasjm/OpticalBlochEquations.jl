@@ -50,7 +50,7 @@ function update_fields!(fields::StructVector{Field{T,F}}, r, t) where {T,F}
         fields.ϵ_val[i] = fields.ϵ[i](t)
     end
     @turbo for i ∈ eachindex(fields)
-        fields.im[i], fields.re[i] = sincos(- fields.kr[i] - fields.ω[i] * t)
+        fields.im[i], fields.re[i] = sincos(fields.kr[i] - fields.ω[i] * t)
     end
     for i ∈ eachindex(fields)
         val = (fields.re[i] + im * fields.im[i]) .* fields.ϵ_val[i]
