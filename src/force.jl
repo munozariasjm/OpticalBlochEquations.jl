@@ -102,7 +102,7 @@ function force(p, ρ, τ)
             d_q = @view d[:,:,q]
             d_nnz_q = d_nnz[q]
             @inbounds for j ∈ d_nnz_q
-                F -= ampl * d_q[j] * conj(p.ρ_soa[j]) #+ conj(ampl * d_q[j] * ρ[j])
+                F += ampl * d_q[j] * conj(p.ρ_soa[j]) #+ conj(ampl * d_q[j] * ρ[j])
             end
         end
     end
