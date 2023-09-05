@@ -42,7 +42,7 @@ function force_noupdate(E_k, ds, ds_state1, ds_state2, ρ_soa)
             end
             # F -= F_k_re * ê[k]
             # F -= im * F_k_im * ê[k]
-            F -= (im * F_k_re - F_k_im) * ê[k] # multiply by im
+            F += (im * F_k_re - F_k_im) * ê[k] # multiply by im
         end
     end
 
