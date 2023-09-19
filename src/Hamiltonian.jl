@@ -1,4 +1,4 @@
-function update_H(H, p, τ)
+function update_H(H, p, r, τ)
     @turbo for i in eachindex(H)
         H.re[i] = p.H₀.re[i]
         H.im[i] = p.H₀.im[i]
@@ -8,7 +8,7 @@ end
 
 function update_H!(p, τ, r, H₀, fields, H, E_k, ds, ds_state1, ds_state2, Js)
 
-    p.update_H(H, p, τ)
+    p.update_H(H, p, r, τ)
     
     # @turbo for i in eachindex(H)
     #     H.re[i] = H₀.re[i]
