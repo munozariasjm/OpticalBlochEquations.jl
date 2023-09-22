@@ -1,10 +1,90 @@
+using Distributions, StatsBase
+
+function SE_collapse!(integrator)
+    """ Periodically called by the solver. Random spontaneous emission. Restart excited state population averaging. """
+   
+    rn = rand()  # sample from random variable uniform([0,1]).
+    
+    n_states = length(integrator.p.states)
+    n_excited = integrator.p.extra_p.n_excited
+    
+    # excited state population integrated over dT  
+    lower_baseline = 0.0
+    upper_baseline = 0.0
+    
+    for i in 1:n_excited
+        upper_baseline += norm(integrator.u[n_states + i])
+        if lower_baseline <= rn < upper_baseline
+
+            i_ground, δm = spontaneous_emission_event(integrator.p, i+n_states-n_excited)
+            
+            # reset state to i_ground
+            for i in 1:n_states
+                integrator.u[i] = 0.0 #-= integrator.u[i]
+            end
+            
+            integrator.u[i_ground] = 1
+
+            dp = sample_direction(1)
+            dv = dp ./ integrator.p.mass
+            integrator.u[n_states + n_excited + 4] += dv[1]
+            integrator.u[n_states + n_excited + 5] += dv[2]
+            integrator.u[n_states + n_excited + 6] += dv[3]
+            
+            integrator.p.n_scatters += 1
+            break
+        end
+        lower_baseline += norm(integrator.u[n_states + i])
+    end
+    
+    # reset excited state population accumulation
+    integrator.u[n_states + 1: n_states + n_excited] .= 0
+    
+    for i in 1:n_states
+        integrator.p.populations[i] = norm(integrator.u[i])^2
+    end
+end
+export SE_collapse! 
+    
+function spontaneous_emission_event(p, i_excited)
+    """ 
+        Excited state i_excited sponatneously emits. Randomly sample which ground state it decays into, 
+        return the ground state index and change in m_F (which is relevant in determining the direction of
+        momentum kick).
+        
+    """
+    n_states = length(p.states)
+    
+    transition_probs = norm.(p.d[:,i_excited,:]).^2
+    w = weights(transition_probs)
+    i = sample(w)
+    δm = -((i-1)÷n_states - 2)
+    i_ground = (i-1) % n_states + 1
+    # @printf("decay from %i to %i", i_excited, i_ground)
+    # println()
+
+    return (i_ground, δm)
+end
+
+uniform_dist = Uniform(0, 2π)
+function sample_direction(r=1.0)
+    θ = 2π * rand()
+    z = rand() * 2 - 1
+    return (r * sqrt(1 - z^2) * cos(θ), r * sqrt(1 - z^2) * sin(θ), r * z)
+end
+
 function schrodinger_stochastic(
     particle, states, fields, d, ψ₀, mass; 
     extra_p=nothing, λ=1.0, Γ=2π, update_H=update_H)
     """
     extra_p should contain n_excited
-    Zeeman_z should be a complex (n_states x n_states) matrix
     
+    ψ in the output will be of the following format:
+    the first n_states indicies will be the coefficients of the current state;
+    the next n_excited indicies is the time-integrated excited state population (reset by callbacks);
+    the next 3 indicies are the current position;
+    the next 3 indicies are the current velocity;
+    the last 3 indicies are the current force.
     """
 
     n_states = length(states)
@@ -128,14 +208,13 @@ function ψ_stochastic!(dψ, ψ, p, τ)
     f = force_stochastic(E_k, ds, ds_state1, ds_state2, ψ_soa, eiωt)
     
     # accumulate excited state populations
-    for i in 1:n_excited
+    for i ∈ 1:n_excited
         dψ[n_states + i] = norm(ψ[n_states-n_excited + i])^2
     end
     
-    # update position and velocity
-    for i in 1:3
-        dψ[n_states + n_excited + i] = ψ[n_states + n_excited + i + 3]
-        dψ[n_states + n_excited + i + 3] = f[i]/mass 
+    for i ∈ 1:3
+        dψ[n_states + n_excited + i] = ψ[n_states + n_excited + i + 3] # update position
+        dψ[n_states + n_excited + i + 3] = f[i]/mass # update velocity
     end
 
     ψ[end-2:end] .= f

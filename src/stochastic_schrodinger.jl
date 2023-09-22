@@ -1,3 +1,5 @@
+using Distributions, StatsBase
+
 function SE_collapse!(integrator)
     """ Periodically called by the solver. Random spontaneous emission. Restart excited state population averaging. """
    
@@ -64,7 +66,6 @@ function spontaneous_emission_event(p, i_excited)
     return (i_ground, δm)
 end
 
-using Distributions
 uniform_dist = Uniform(0, 2π)
 function sample_direction(r=1.0)
     θ = 2π * rand()
@@ -77,6 +78,13 @@ function schrodinger_stochastic(
     extra_p=nothing, λ=1.0, Γ=2π, update_H=update_H)
     """
     extra_p should contain n_excited
+    
+    ψ in the output will be of the following format:
+    the first n_states indicies will be the coefficients of the current state;
+    the next n_excited indicies is the time-integrated excited state population (reset by callbacks);
+    the next 3 indicies are the current position;
+    the next 3 indicies are the current velocity;
+    the last 3 indicies are the current force.
     """
 
     n_states = length(states)
@@ -185,9 +193,6 @@ function ψ_stochastic!(dψ, ψ, p, τ)
     
     update_H!(p, τ, r, H₀, fields, H, E_k, ds, ds_state1, ds_state2, Js)
 
-    # add Zeeman Hamiltonian to H
-    # add_B_to_A_with_scalar!(H, p.Zeeman_z, p.B_gradient_z * r[3]^(-1))
-    
     update_eiωt!(eiωt, ω, τ)
     Heisenberg!(H, eiωt, -1)
 
