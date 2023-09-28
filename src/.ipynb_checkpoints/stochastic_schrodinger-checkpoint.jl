@@ -178,7 +178,7 @@ function ψ_stochastic!(dψ, ψ, p, τ)
     n_states = length(states)
     n_excited = extra_p.n_excited
     
-    r = SVector(real(ψ[n_states + n_excited + 1]),real(ψ[n_states + n_excited + 2]),real(ψ[n_states + n_excited + 3]))
+    r = SVector(real(ψ[n_states + n_excited + 1]), real(ψ[n_states + n_excited + 2]), real(ψ[n_states + n_excited + 3]))
 
     ψ_norm = 0.0
     for i ∈ 1:n_states
@@ -192,12 +192,9 @@ function ψ_stochastic!(dψ, ψ, p, τ)
     base_to_soa!(ψ, ψ_soa)
     
     update_H!(p, τ, r, H₀, fields, H, E_k, ds, ds_state1, ds_state2, Js)
-
-    # add Zeeman Hamiltonian to H
-    # add_B_to_A_with_scalar!(H, p.Zeeman_z, p.B_gradient_z * r[3]^(-1))
     
     update_eiωt!(eiωt, ω, τ)
-    Heisenberg!(H, eiωt, -1)
+    Heisenberg!(H, eiωt)
 
     mul_by_im_minus!(ψ_soa)
     mul_turbo!(dψ_soa, H, ψ_soa)
@@ -206,7 +203,6 @@ function ψ_stochastic!(dψ, ψ, p, τ)
     
     # calculate force
     f = force_stochastic(E_k, ds, ds_state1, ds_state2, ψ_soa, eiωt)
-    
     # accumulate excited state populations
     for i ∈ 1:n_excited
         dψ[n_states + i] = norm(ψ[n_states-n_excited + i])^2
@@ -214,7 +210,7 @@ function ψ_stochastic!(dψ, ψ, p, τ)
     
     for i ∈ 1:3
         dψ[n_states + n_excited + i] = ψ[n_states + n_excited + i + 3] # update position
-        dψ[n_states + n_excited + i + 3] = f[i]/mass # update velocity
+        dψ[n_states + n_excited + i + 3] = 0f[i]/mass # update velocity
     end
 
     ψ[end-2:end] .= f
@@ -224,7 +220,7 @@ function ψ_stochastic!(dψ, ψ, p, τ)
 end
 export ψ_stochastic!
 
-function force_stochastic(E_k, ds, ds_state1, ds_state2, ψ_soa,eiωt)
+function force_stochastic(E_k, ds, ds_state1, ds_state2, ψ_soa, eiωt)
     F = @SVector Complex{Float64}[0,0,0]
 
     @inbounds for q ∈ 1:3
@@ -243,24 +239,28 @@ function force_stochastic(E_k, ds, ds_state1, ds_state2, ψ_soa,eiωt)
                 m = ds_state1_q[j] # excited state
                 n = ds_state2_q[j] # ground state
                 
+                # construct ρ_mn = c_m c_n^*
                 ρ_mn = conj(ψ_soa[n]*eiωt[n]) * ψ_soa[m]*eiωt[m]
+
+                # c_m = ψ_soa[m] * conj(eiωt[m]) # exp(-iωt) factor to transform to Heisenberg picture
+                # c_n = ψ_soa[n] * conj(eiωt[n]) # exp(-iωt) factor to transform to Heisenberg picture
+
+                # ρ_mn = c_m * conj(c_n)
+
                 ρ_re = real(ρ_mn)
                 ρ_im = imag(ρ_mn)
                 
                 d_re = ds_q_re[j]
                 d_im = ds_q_im[j]
+                d_im = -d_im
                 a1 = d_re * ρ_re - d_im * ρ_im
                 a2 = d_re * ρ_im + d_im * ρ_re
                 F_k_re += E_kq_re * a1 - E_kq_im * a2
                 F_k_im += E_kq_im * a1 + E_kq_re * a2     
-                
             end
-           
             F += (im * F_k_re - F_k_im) * ê[k] # multiply by im
         end
     end
-
     F += conj(F)
-    
     return real.(F)
 end

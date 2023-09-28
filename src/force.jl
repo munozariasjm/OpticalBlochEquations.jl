@@ -25,6 +25,7 @@ function force_noupdate(E_k, ds, ds_state1, ds_state2, ρ_soa)
                 ρ_im = ρ_soa.im[m,n]
                 d_re = ds_q_re[j]
                 d_im = ds_q_im[j]
+                d_im *=- 1 # take conjugate of d to make sure the Hamiltonian terms are d⋅E* + d*⋅E 
                 a1 = d_re * ρ_re - d_im * ρ_im
                 a2 = d_re * ρ_im + d_im * ρ_re
                 F_k_re += E_kq_re * a1 - E_kq_im * a2

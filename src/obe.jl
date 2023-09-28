@@ -194,24 +194,45 @@ function update_eiωt!(eiωt::StructArray{<:Complex}, ω::Array{<:Real}, τ::Rea
     return nothing
 end
 
-function Heisenberg!(ρ::StructArray{<:Complex}, eiωt::StructArray{<:Complex}, im_factor=1)
-    @inbounds for j ∈ 1:size(ρ, 2)
+"""
+    Apply the transformation (A)_(ij) -> (A)_(ij) * exp(-iω_it) * exp(+iω_jt)
+"""
+function Heisenberg!(A::StructArray{<:Complex}, eiωt::StructArray{<:Complex})
+    @inbounds for j ∈ 1:size(A, 2)
         jre = eiωt.re[j]
-        jim = eiωt.im[j]
-        for i ∈ 1:size(ρ, 1)
+        jim = -eiωt.im[j]
+        for i ∈ 1:size(A, 1)
             ire = eiωt.re[i]
-            iim = eiωt.im[i]
-            cisim = im_factor * (iim * jre - ire * jim)
-            cisre = ire * jre + iim * jim
-            ρre_i = ρ.re[i,j]
-            ρim_i = ρ.im[i,j]
-            ρ.re[i,j] = ρre_i * cisre - ρim_i * cisim
-            ρ.im[i,j] = ρre_i * cisim + ρim_i * cisre
+            iim = eiωt.im[i] # negative sign to get exp(-iω_it) rather than exp(iω_it)
+            cisim = iim * jre + ire * jim
+            cisre = ire * jre - iim * jim
+            Are_i = A.re[i,j]
+            Aim_i = A.im[i,j]
+            A.re[i,j] = Are_i * cisre - Aim_i * cisim
+            A.im[i,j] = Are_i * cisim + Aim_i * cisre
         end
     end
     return nothing
 end
 export Heisenberg!
+# function Heisenberg!(A::StructArray{<:Complex}, eiωt::StructArray{<:Complex}, im_factor=1)
+#     @inbounds for j ∈ 1:size(A, 2)
+#         jre = eiωt.re[j]
+#         jim = eiωt.im[j]
+#         for i ∈ 1:size(A, 1)
+#             ire = eiωt.re[i]
+#             iim = eiωt.im[i]
+#             cisim = im_factor * (iim * jre - ire * jim)
+#             cisre = ire * jre + iim * jim
+#             Are_i = A.re[i,j]
+#             Aim_i = A.im[i,j]
+#             A.re[i,j] = Are_i * cisre - Aim_i * cisim
+#             A.im[i,j] = Are_i * cisim + Aim_i * cisre
+#         end
+#     end
+#     return nothing
+# end
+# export Heisenberg!
 
 function Heisenberg_ψ!(ψ::StructArray{<:Complex}, eiωt::StructArray{<:Complex}, im_factor=1)
     @turbo for i ∈ 1:size(ψ, 1)
@@ -400,33 +421,34 @@ function update_T₁T₂!(T1::Array{<:Real}, T2::Array{<:Real}, A::StructArray{<
     end
 end
 
-# Wigner D-matrix to rotate polarization vector
-# D(cosβ, sinβ, α, γ) = [
-#     (1/2)*(1 + cosβ)*exp(-im*(α + γ)) -(1/√2)*sinβ*exp(-im*α) (1/2)*(1 - cosβ)*exp(-im*(α - γ));
-#     (1/√2)*sinβ*exp(-im*γ) cosβ -(1/√2)*sinβ*exp(im*γ);
-#     (1/2)*(1 - cosβ)*exp(im*(α - γ)) (1/√2)*sinβ*exp(im*α) (1/2)*(1 + cosβ)*exp(im*(α + γ))
-# ]
-function D(cosβ, sinβ, α, γ)
-    # γ = -γ
-    # Sign convention is different from the matrix above 
+function D(cosβ, sinβ, α, γ) 
     return [
-        (1/2)*(1 + cosβ)*exp(-im*(α + γ)) -(1/√2)*sinβ*exp(-im*α) (1/2)*(1 - cosβ)*exp(-im*(α - γ));
-        (1/√2)*sinβ*exp(-im*γ) cosβ -(1/√2)*sinβ*exp(im*γ);
-        (1/2)*(1 - cosβ)*exp(im*(α - γ)) (1/√2)*sinβ*exp(im*α) (1/2)*(1 + cosβ)*exp(im*(α + γ))
+        (1/2)*(1 + cosβ)*exp(im*α)*exp(im*γ) -(1/√2)*sinβ*exp(im*α) (1/2)*(1 - cosβ)*exp(im*α)*exp(-im*γ);
+        (1/√2)*sinβ*exp(im*γ) cosβ -(1/√2)*sinβ*exp(-im*γ);
+        (1/2)*(1 - cosβ)*exp(-im*α)*exp(im*γ) (1/√2)*sinβ*exp(-im*α) (1/2)*(1 + cosβ)*exp(-im*α)*exp(-im*γ)
     ]
 end
+export D
 
 using LinearAlgebra: cross
 
 function rotate_pol(pol, k)::SVector{3, Complex{Float64}}
     # Rotates polarization `pol` onto the quantization axis `k`
     k /= norm(k)
-    
+
     # Find the axis-angle rotation corresponding to the rotation
     x,y,z = cross(k, ẑ)
     θ = acos(k ⋅ ẑ)
 
-    # println(x,y,z)
+    # k = SVector(k[1], k[2], k[3]) # phase convention for the rotation
+
+    # x = -x
+    y = -y
+    # z = -z
+    # println(k)
+    # println(x)
+    # println(y)
+    # println(z)
     # println(θ)
 
     if θ ≈ 0
@@ -439,36 +461,62 @@ function rotate_pol(pol, k)::SVector{3, Complex{Float64}}
         γ = 0.
     else
 
-        # α = atan(y * sin(θ) - x * z * (1 - cos(θ)), 1 - (y^2 + z^2) * (1 - cos(θ)))
-        # β = asin(x * y * (1 - cos(θ)) + z * sin(θ))
-        # γ = atan(x * sin(θ) - y * z * (1 - cos(θ)), 1 - (x^2 + z^2) * (1 - cos(θ)))
-
         A33 = (1 - cos(θ)) * z^2 + cos(θ)
         A31 = (1 - cos(θ)) * z * x - y * sin(θ)
         A32 = (1 - cos(θ)) * z * y + x * sin(θ)
         A13 = (1 - cos(θ)) * x * z + y * sin(θ)
         A23 = (1 - cos(θ)) * y * z - x * sin(θ)
 
-        β = acos(A33)
+        α = atan(A23, A13)
+        β = atan(sqrt(1 - A33^2), A33)
+        γ = atan(A32, -A31)
 
-        # println(A31, " ", A32)
-        α = atan(A31, A32)
+        A12 = x * y * (1 - cos(θ)) - z * sin(θ)
+        A21 = y * x * (1 - cos(θ)) + z * sin(θ)
+        A22 = cos(θ) + y^2 * (1 - cos(θ))
 
-        # println(A13, " ", A23)
-        γ = -atan(A13, A23)
+        # α = atan(A12, A32)
+        # β = acos(A22)
+        # γ = atan(A21, -A23)
+
+        A11 = cos(θ) + x^2 * (1 - cos(θ))
+
+        # α = π + atan(-A23, A33)
+        # β = -asin(A13)
+        # γ = atan(-A12, A11)
+
+        # α = atan(-A31, A11)
+        # β = asin(A21)
+        # γ = atan(-A23, A22)
+
+        # α = atan(A21, A11)
+        # β = asin(-A31)
+        # γ = atan(A32, A33)
+
+        # α = atan(A13, -A23)
+        # β = acos(A33)
+        # γ = atan(A31, A32)
 
     end
-    # print(α, " ", β, " ", γ)
 
     # k = k / norm(k)
-    # cosβ = k[3]
+    # β = acos(k[3])
+    # cosβ = cos(β)
     # sinβ = sqrt(1 - cosβ^2)
-    # α = 0.0
+    # α = 4atan(k[1])
     # if abs(cosβ) < 1
     #     γ = atan(k[2], k[1])
     # else
     #     γ = 0.0
     # end
+    # # γ = π
+    # if γ > 0
+    #     pol *= im # phase convention
+    # end
+
+    # print(α, " ", β, " ", γ)
+
+    # print(γ)
     # return inv(D(cosβ, sinβ, α, γ)) * pol
 
     return inv(D(cos(β), sin(β), α, γ)) * pol

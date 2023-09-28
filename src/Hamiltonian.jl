@@ -57,6 +57,7 @@ function update_H!(p, τ, r, H₀, fields, H, E_k, ds, ds_state1, ds_state2, Js)
 
     @inbounds for q ∈ 1:3
         E_q = p.E[q]
+        # E_q = conj(E_q) ####
         if norm(E_q) > 1e-10
             E_q_re = real(E_q)
             E_q_im = imag(E_q)
@@ -70,12 +71,13 @@ function update_H!(p, τ, r, H₀, fields, H, E_k, ds, ds_state1, ds_state2, Js)
                 n = ds_state2_q[i] # ground state
                 d_re = ds_q_re[i]
                 d_im = ds_q_im[i]
+                # d_im = -d_im # take conjugate of d to make sure the Hamiltonian terms are d⋅E* + d*⋅E
                 val_re = E_q_re * d_re - E_q_im * d_im
                 val_im = E_q_re * d_im + E_q_im * d_re
-                H.re[n,m] += val_re
-                H.im[n,m] += val_im
-                H.re[m,n] += val_re
-                H.im[m,n] -= val_im
+                H.re[n,m] += -val_re # minus sign to make sure Hamiltonian is -d⋅E
+                H.im[n,m] += -val_im
+                H.re[m,n] += -val_re
+                H.im[m,n] -= -val_im
             end
         end
     end
@@ -96,7 +98,7 @@ function update_H!(p, τ, r, H₀, fields, H, E_k, ds, ds_state1, ds_state2, Js)
     # end
 
     for J ∈ Js
-        rate = im * J.r^2 / 2
+        rate = im * norm(J.r)^2 / 2
         H[J.s, J.s] -= rate
     end
 
