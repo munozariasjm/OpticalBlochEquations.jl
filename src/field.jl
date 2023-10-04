@@ -4,24 +4,25 @@ using StructArrays: StructVector
 """
     Field([])
 """
-struct Field{T,F}
+struct Field{T,F1,F2}
     k::SVector{3, T}                        # k-vector
-    ϵ::F                                    # update function to update `ϵ` according to the time `t`
+    ϵ::F1                                    # update function to update `ϵ` according to the time `t`
     ϵ_val::SVector{3, Complex{T}}           # polarization
     ω::T                                    # frequency
-    s::T                                    # saturation parameter
+    s_func::F2                              # function to calculate saturation parameter
+    s::T
     re::T                                   
     im::T
     kr::T                                   # current value of `k ⋅ r`
     E::SVector{3, Complex{T}}               # current value of the field
 end
-function Field(k, ϵ, ω, s)
+function Field(k, ϵ, ω, s_func)
     _zero = zero(Float64)
-    Field{Float64, typeof(ϵ)}(k, ϵ, SVector(_zero,_zero,_zero), ω, s, _zero, _zero, _zero, SVector(_zero,_zero,_zero))
+    Field{Float64, typeof(ϵ), typeof(s_func)}(k, ϵ, SVector(_zero,_zero,_zero), ω, s_func, 0.0, _zero, _zero, _zero, SVector(_zero,_zero,_zero))
 end
-function Field(T, k, ϵ, ω, s)
+function Field(T, k, ϵ, ω, s_func)
     _zero = zero(T)
-    Field{T, typeof(ϵ)}(k, ϵ, SVector(_zero,_zero,_zero), ω, s, _zero, _zero, _zero, SVector(_zero,_zero,_zero))
+    Field{T, typeof(ϵ), typeof(s_func)}(k, ϵ, SVector(_zero,_zero,_zero), ω, s_func, 0.0, _zero, _zero, _zero, SVector(_zero,_zero,_zero))
 end
 export Field
 
@@ -42,12 +43,13 @@ export Field
 #     return nothing
 # end
 
-function update_fields!(fields::StructVector{Field{T,F}}, r, t) where {T,F}
+function update_fields!(fields::StructVector{Field{T,F1,F2}}, r, t) where {T,F1,F2}
     # Fields are represented as ϵ_q * exp(i(kr - ωt)), where ϵ_q is in spherical coordinates
     for i ∈ eachindex(fields)
         k = fields.k[i]
         fields.kr[i] = k ⋅ r
         fields.ϵ_val[i] = fields.ϵ[i](t)
+        fields.s[i] = fields.s_func[i](t)
     end
     @turbo for i ∈ eachindex(fields)
         fields.im[i], fields.re[i] = sincos(- fields.kr[i] + fields.ω[i] * t)

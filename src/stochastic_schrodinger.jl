@@ -296,9 +296,6 @@ function schrodinger_stochastic(
     n_fields = length(fields)
 
     states = StructArray(states)
-    if n_fields > 0
-        fields = StructArray(fields)
-    end
     fields = StructArray(fields)
 
     k = 2π / λ
