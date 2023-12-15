@@ -26,8 +26,6 @@ function Field(T, k, ϵ, ω, s_func)
 end
 export Field
 
-<<<<<<< HEAD
-=======
 # function update_fields!(fields::StructVector{Field}, r, t)
 #     # Fields are represented as ϵ_q * exp(i(kr - ωt)) + c.c., where ϵ_q is in spherical coordinates
 #     for i ∈ eachindex(fields)
@@ -45,18 +43,13 @@ export Field
 #     return nothing
 # end
 
->>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
 function update_fields!(fields::StructVector{Field{T,F1,F2}}, r, t) where {T,F1,F2}
     # Fields are represented as ϵ_q * exp(i(kr - ωt)), where ϵ_q is in spherical coordinates
     @inbounds @fastmath for i ∈ eachindex(fields)
         k = fields.k[i]
         fields.kr[i] = k ⋅ r
         fields.ϵ_val[i] = fields.ϵ[i](t)
-<<<<<<< HEAD
         fields.s[i] = fields.s_func[i](r,t)
-=======
-        fields.s[i] = fields.s_func[i](t)
->>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
     end
     @turbo for i ∈ eachindex(fields)
         fields.im[i], fields.re[i] = sincos(- fields.kr[i] + fields.ω[i] * t)
