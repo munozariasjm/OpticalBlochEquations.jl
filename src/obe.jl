@@ -124,7 +124,7 @@ function obe(ρ0, particle, states, fields, d, d_m, should_round_freqs, include_
     ds_state2 = [Int64[], Int64[], Int64[]]
     for s′ in eachindex(states), s in s′:n_states, q in qs
         dme = d[s′, s, q+2]
-        if abs(dme) > 1e-10 && (states[s′].E + 3 / 2π < states[s].E) # only energy-allowed jumps are generated
+        if abs(dme) > 1e-10 && (states[s′].E < states[s].E) # only energy-allowed jumps are generated
         # if (states[s′].E < states[s].E) # only energy-allowed jumps are generated
             push!(ds_state1[q+2], s)
             push!(ds_state2[q+2], s′)
@@ -157,7 +157,7 @@ function obe(ρ0, particle, states, fields, d, d_m, should_round_freqs, include_
         force_last_period=force_last_period, populations=populations,
         d=d, d_nnz=d_nnz,
         E=E, E_k=E_k,
-        ds=ds, ds_state1=ds_state1, ds_state2=ds_state2, update_H=update_H,
+        ds=ds, ds_state1=ds_state1, ds_state2=ds_state2,
         extra_p=extra_p)
 
     return p
@@ -194,16 +194,47 @@ function update_eiωt!(eiωt::StructArray{<:Complex}, ω::Array{<:Real}, τ::Rea
     return nothing
 end
 
+function update_eiωt_nocomplex!(eiωt_re::Array{<:Real}, eiωt_im::Array{<:Real}, ω::Array{<:Real}, τ::Real)
+    @turbo for i ∈ eachindex(ω)
+        eiωt_im[i], eiωt_re[i] = sincos( ω[i] * τ )
+    end
+    return nothing
+end
+
+"""
+    Apply the transformation (A)_(ij) -> (A)_(ij) * exp(-iω_it) * exp(+iω_jt)
+"""
+function Heisenberg_obes!(A::StructArray{<:Complex}, eiωt::StructArray{<:Complex}, im_prefactor)
+    @inbounds for j ∈ 1:size(A, 2)
+        jre = eiωt.re[j]
+        jim = eiωt.im[j]
+        for i ∈ 1:size(A, 1)
+            ire = eiωt.re[i]
+            iim = -eiωt.im[i]
+            cisim = im_prefactor * (iim * jre + ire * jim)
+            cisre = ire * jre - iim * jim
+            Are_i = A.re[i,j]
+            Aim_i = A.im[i,j]
+            A.re[i,j] = Are_i * cisre - Aim_i * cisim
+            A.im[i,j] = Are_i * cisim + Aim_i * cisre
+        end
+    end
+    return nothing
+end
+export Heisenberg!
+
 """
     Apply the transformation (A)_(ij) -> (A)_(ij) * exp(-iω_it) * exp(+iω_jt)
 """
 function Heisenberg!(A::StructArray{<:Complex}, eiωt::StructArray{<:Complex})
     @inbounds for j ∈ 1:size(A, 2)
         jre = eiωt.re[j]
-        jim = -eiωt.im[j]
+        jim = -eiωt.im[j] # negative sign to get exp(-iω_it) rather than exp(iω_it)
+        # jim = eiωt.im[j] # negative sign to get exp(-iω_it) rather than exp(iω_it)
         for i ∈ 1:size(A, 1)
             ire = eiωt.re[i]
-            iim = eiωt.im[i] # negative sign to get exp(-iω_it) rather than exp(iω_it)
+            # iim = -eiωt.im[i] # added negative sign on 10/20/23 --> shouldn't the negative sign be here?
+            iim = eiωt.im[i]
             cisim = iim * jre + ire * jim
             cisre = ire * jre - iim * jim
             Are_i = A.re[i,j]
@@ -215,6 +246,25 @@ function Heisenberg!(A::StructArray{<:Complex}, eiωt::StructArray{<:Complex})
     return nothing
 end
 export Heisenberg!
+
+function Heisenberg_nocomplex!(A_re::Array{<:Real}, A_im::Array{<:Real}, eiωt_re::Array{<:Real}, eiωt_im::Array{<:Real})
+    @inbounds for j ∈ 1:size(A_re, 2)
+        jre = eiωt_re[j]
+        jim = -eiωt_im[j] # negative sign to get exp(-iω_it) rather than exp(iω_it)
+        for i ∈ 1:size(A_re, 1)
+            ire = eiωt_re[i]
+            iim = eiωt_im[i]
+            cisim = iim * jre + ire * jim
+            cisre = ire * jre - iim * jim
+            Are_i = A_re[i,j]
+            Aim_i = A_im[i,j]
+            A_re[i,j] = Are_i * cisre - Aim_i * cisim
+            A_im[i,j] = Are_i * cisim + Aim_i * cisre
+        end
+    end
+    return nothing
+end
+
 # function Heisenberg!(A::StructArray{<:Complex}, eiωt::StructArray{<:Complex}, im_factor=1)
 #     @inbounds for j ∈ 1:size(A, 2)
 #         jre = eiωt.re[j]
@@ -289,11 +339,11 @@ function ρ!(dρ, ρ, p, τ)
     base_to_soa!(ρ, ρ_soa)
 
     # Update the Hamiltonian according to the new time τ
-    update_H!(p, τ, r, H₀, fields, H, E_k, ds, ds_state1, ds_state2, Js)
+    update_H_obes!(p, τ, r, H₀, fields, H, E_k, ds, ds_state1, ds_state2, Js)
 
     # Apply a transformation to go to the Heisenberg picture
     update_eiωt!(eiωt, ω, τ)
-    Heisenberg!(ρ_soa, eiωt)
+    Heisenberg_obes!(ρ_soa, eiωt, +1.0)
 
     # Compute coherent evolution terms
     im_commutator!(dρ_soa, H, ρ_soa, tmp)
@@ -315,7 +365,7 @@ function ρ!(dρ, ρ, p, τ)
 
     # The left-hand side also needs to be transformed into the Heisenberg picture
     # To do this, we require the transpose of the `ω` matrix
-    Heisenberg!(dρ_soa, eiωt, -1)
+    Heisenberg_obes!(dρ_soa, eiωt, -1.0)
     soa_to_base!(dρ, dρ_soa)
 
     n = length(ρ_soa)
@@ -540,3 +590,68 @@ function mul_turbo!(C, A, B)
         C.im[m,n] = Cmn_im
     end
 end
+
+function mul_turbo_nocomplex!(n_states, dψ, H_re, H_im, ψ)
+    @inbounds for i ∈ 1:n_states
+        dψ_re_i = zero(eltype(dψ))
+        dψ_im_i = zero(eltype(dψ))
+        for j ∈ 1:n_states
+            ψ_re = ψ[j]
+            ψ_im = ψ[j+n_states]
+            H_ij_re = H_re[i,j]
+            H_ij_im = H_im[i,j]
+            dψ_re_i += H_ij_re * ψ_re - H_ij_im * ψ_im
+            dψ_im_i += H_ij_re * ψ_im + H_ij_im * ψ_re
+        end
+        dψ[i] = dψ_re_i
+        dψ[i+n_states] = dψ_im_i
+    end
+    return nothing
+end
+
+function mul_turbo_nocomplex_v0!(n_states, dψ, H, ψ)
+    H_re = H.re
+    H_im = H.im
+    @inbounds for i ∈ 1:n_states
+        dψ_re_i = zero(eltype(dψ))
+        dψ_im_i = zero(eltype(dψ))
+        for j ∈ 1:n_states
+            ψ_re = ψ[j]
+            ψ_im = ψ[j+n_states]
+            H_ij_re = H_re[i,j]
+            H_ij_im = H_im[i,j]
+            dψ_re_i += H_ij_re * ψ_re - H_ij_im * ψ_im
+            dψ_im_i += H_ij_re * ψ_im + H_ij_im * ψ_re
+        end
+        dψ[i] = dψ_re_i
+        dψ[i+n_states] = dψ_im_i
+    end
+    return nothing
+end
+
+function mul_turbo_nocomplex_v00!(n_states, C, A, B)
+    @inbounds for m ∈ 1:size(A,1), n ∈ 1:size(B,2)
+        Cmn_re = 0.0
+        Cmn_im = 0.0
+        for k ∈ 1:size(A,2)
+            A_mk_re = A.re[m,k]
+            A_mk_im = A.im[m,k]
+            B_kn_re = B[k,n]
+            B_kn_im = B[k+n_states,n]
+            Cmn_re += A_mk_re * B_kn_re - A_mk_im * B_kn_im
+            Cmn_im += A_mk_re * B_kn_im + A_mk_im * B_kn_re
+        end
+        C[m,n] = Cmn_re
+        C[m+n_states,n] = Cmn_im
+    end
+end
+
+#### GPU FUNCTIONS ####
+
+# function base_to_soa_gpu!(ρ::Array{ComplexF64}, ρ_soa::Array{ComplexF64})
+#     for i in eachindex(ρ_soa)
+#         ρ_soa.re[i] = ρ[i]
+#         ρ_soa.im[i] = ρ[i]
+#     end
+#     return nothing
+# end
