@@ -42,9 +42,15 @@ function get_CaOH_package()
     )
 
     X_state_parameters = QuantumStates.@params begin
+<<<<<<< HEAD
         BX = 10023.0841
         DX = 1.154e-2
         γX = 34.7593
+=======
+        BX = 0.33441 * 299792458 * 1e-4
+        DX = 0.3869e-6 * 299792458 * 1e-4
+        γX = 0.001134 * 299792458 * 1e-4
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
         bFX = 2.602
         cX = 2.053
     end
@@ -137,12 +143,16 @@ function get_CaOH_package()
     return package
 end;
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
 function update_H(H, p, r, τ)
     Zeeman_Hz = p.extra_p.Zeeman_Hz
     Zeeman_Hx = p.extra_p.Zeeman_Hx
     Zeeman_Hy = p.extra_p.Zeeman_Hy
     
+<<<<<<< HEAD
     τ_bfield = p.extra_p.ramp_time / (1/Γ)
     scalar = τ/τ_bfield
     scalar = min(scalar, 1.0)
@@ -150,12 +160,21 @@ function update_H(H, p, r, τ)
     gradient_z = scalar * p.extra_p.gradient_z
     gradient_x = scalar * p.extra_p.gradient_x
     gradient_y = scalar * p.extra_p.gradient_y
+=======
+    gradient_z = p.extra_p.gradient_z
+    gradient_x = p.extra_p.gradient_x
+    gradient_y = p.extra_p.gradient_y
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
     @turbo for i in eachindex(H)
         H.re[i] = gradient_z * Zeeman_Hz.re[i] * r[3] + gradient_x * Zeeman_Hx.re[i] * r[1] + gradient_y * Zeeman_Hy.re[i] * r[2]
         H.im[i] = gradient_z * Zeeman_Hz.im[i] * r[3] + gradient_x * Zeeman_Hx.im[i] * r[1] + gradient_y * Zeeman_Hy.im[i] * r[2]
     end
     return nothing
+<<<<<<< HEAD
 end;
+=======
+end
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
 
 function randomize_initial_vector!(p, r_dist, v_dist)
     n_excited = extra_p.n_excited
@@ -208,7 +227,11 @@ function condition(u,t,integrator)
     n_states = length(integrator.p.states)
     n_excited = integrator.p.n_excited
     r = sqrt(sum(norm.(u[n_states + n_excited + 1: n_states + n_excited + 3]).^2))
+<<<<<<< HEAD
     if r >= 8e-3*k # terminate if the particle is more than 4mm from the centre
+=======
+    if r >= 3e-3*k # terminate if the particle is more than 20mm from the centre
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
         # println(u[n_states + n_excited + 1: n_states + n_excited + 3]./k)
        terminate!(integrator) 
     end
@@ -394,7 +417,11 @@ function simulate_particles(package, params, n_values)
     n_threads=Threads.nthreads()
     batch_size = fld(n_values, n_threads)
     remainder = n_values - batch_size * n_threads
+<<<<<<< HEAD
     prog_bar = Progress(n_values)
+=======
+    # prog_bar = Progress(n_values)
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
 
     n_states = length(package.states)
     n_excited = package.n_excited
@@ -434,7 +461,11 @@ function simulate_particles(package, params, n_values)
             times[j] =  plot_ts./Γ*1e3
             A_populations[j] = [sum(real.(norm.(u[n_states - n_excited + 1 : n_states]).^2)) for u in plot_us]
 
+<<<<<<< HEAD
             next!(prog_bar)
+=======
+            # next!(prog_bar)
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
         end
     end
     

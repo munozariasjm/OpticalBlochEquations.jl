@@ -1,0 +1,8 @@
+--------------------------------------------------
+test 146 results 
+--------------------------------------------------
+Molecules trapped: 0 out of 40 
+Final cloud size: (NaN, NaN, NaN) mm 
+Final temperature: (NaN, NaN, NaN) μK 
+Average photons scattered: 0 
+--------------------------------------------------

@@ -203,7 +203,11 @@ function condition(u,t,integrator)
     n_states = length(integrator.p.states)
     n_excited = integrator.p.n_excited
     r = sqrt(sum(norm.(u[n_states + n_excited + 1: n_states + n_excited + 3]).^2))
+<<<<<<< HEAD
     if r >= 4e-3*k # terminate if the particle is more than 4mm from the centre
+=======
+    if r >= 3e-3*k # terminate if the particle is more than 20mm from the centre
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
         # println(u[n_states + n_excited + 1: n_states + n_excited + 3]./k)
        terminate!(integrator) 
     end
@@ -389,7 +393,11 @@ function simulate_particles(package, params, n_values)
     n_threads=Threads.nthreads()
     batch_size = fld(n_values, n_threads)
     remainder = n_values - batch_size * n_threads
+<<<<<<< HEAD
     prog_bar = Progress(n_values)
+=======
+    # prog_bar = Progress(n_values)
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
 
     n_states = length(package.states)
     n_excited = package.n_excited
@@ -429,7 +437,11 @@ function simulate_particles(package, params, n_values)
             times[j] =  plot_ts./Γ*1e3
             A_populations[j] = [sum(real.(norm.(u[n_states - n_excited + 1 : n_states]).^2)) for u in plot_us]
 
+<<<<<<< HEAD
             next!(prog_bar)
+=======
+            # next!(prog_bar)
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
         end
     end
     

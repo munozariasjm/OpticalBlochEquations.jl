@@ -1,0 +1,20 @@
+--------------------------------------------------
+test 575 information 
+--------------------------------------------------
+propagation time = 30.00 ms 
+particle number = 40 
+--------------------------------------------------
+Laser parameters:
+Polarizations (+x beam): -, +, -, - 
+Detunings (MHz): 6.40, -5.12, 9.60, -5.12 
+Saturations: 4.00, 0.00, 4.00, 0.00 
+--------------------------------------------------
+max B field gradient: (-15.00, 15.00, -30.00) G/cm 
+B field ramp time: 10.0 ms 
+--------------------------------------------------
+Initial state: 
+Cloud radius = 0.60 mm 
+Cloud temperature = 1.00 mK 
+Displacement from centre = (0.00, 0.00, 0.00) mm 
+Centre of mass velocity = (0.00, 0.00, 0.00) m/s 
+--------------------------------------------------

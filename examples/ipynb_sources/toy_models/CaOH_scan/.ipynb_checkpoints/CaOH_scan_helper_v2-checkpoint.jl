@@ -49,9 +49,15 @@ function get_CaOH_package()
     )
 
     X_state_parameters = QuantumStates.@params begin
+<<<<<<< HEAD
         BX = 10023.0841
         DX = 1.154e-2
         γX = 34.7593
+=======
+        BX = 0.33441 * 299792458 * 1e-4
+        DX = 0.3869e-6 * 299792458 * 1e-4
+        γX = 0.001134 * 299792458 * 1e-4
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
         bFX = 2.602
         cX = 2.053
     end
@@ -150,7 +156,11 @@ function update_H(H, p, r, τ)
     Zeeman_Hy = p.extra_p.Zeeman_Hy
     
     τ_bfield = p.extra_p.ramp_time / (1/Γ)
+<<<<<<< HEAD
     scalar = τ/τ_bfield
+=======
+    scalar = 0.1 * exp(τ/τ_bfield)
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
     scalar = min(scalar, 1.0)
     
     gradient_z = scalar * p.extra_p.gradient_z
@@ -210,6 +220,7 @@ function condition(u,t,integrator)
     for i ∈ 1:p.n_excited
         integrated_excited_pop += real(u[p.n_states+i])
     end
+<<<<<<< HEAD
     _condition = integrated_excited_pop - p.time_to_decay
     
     r = 0.0
@@ -218,6 +229,14 @@ function condition(u,t,integrator)
     end
     r = sqrt(r)
     if r >= 10e-3*k # terminate if the particle is more than 6 mm from the centre
+=======
+    _condition = integrated_excited_pop - p.extra_p.time_to_decay
+    
+    n_states = length(integrator.p.states)
+    n_excited = integrator.p.n_excited
+    r = sqrt(sum(norm.(u[n_states + n_excited + 1: n_states + n_excited + 3]).^2))
+    if r >= 3e-3*k # terminate if the particle is more than 3 mm from the centre
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
        terminate!(integrator) 
     elseif integrator.p.n_scatters > integrator.p.extra_p.photon_budget # also terminate if too many photons have been scattered
         terminate!(integrator)
@@ -278,6 +297,11 @@ end
 
 flip(ϵ) = (ϵ == σ⁻) ? σ⁺ : σ⁻
 
+<<<<<<< HEAD
+=======
+decay_dist = Exponential(1)
+
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
 function make_problem_with_param(molecule_package, param)    
     t_end = param.t_end
     pol1_x, pol2_x, pol3_x, pol4_x = param.pol1_x, param.pol2_x, param.pol3_x, param.pol4_x
@@ -315,6 +339,7 @@ function make_problem_with_param(molecule_package, param)
         gradient_z = -B_gradient*1e2/k,
         gradient_x = -B_gradient*1e2/k/2,
         gradient_y = B_gradient*1e2/k/2, # should be -1 but has wrong sign of Zeeman interaction
+<<<<<<< HEAD
         # time_to_decay=rand(decay_dist),
         n_excited = n_excited,
         ramp_time = ramp_time,
@@ -322,6 +347,18 @@ function make_problem_with_param(molecule_package, param)
         photon_budget = rand(Exponential(Inf)) # make the photon budget infinite but add a penalty in the "goodness" function for higher scattering rates
         )
 
+=======
+        decay_dist=decay_dist,
+        time_to_decay=rand(decay_dist),
+        n_excited = n_excited,
+        ramp_time = ramp_time,
+        photon_budget = rand(Exponential(14000))
+        )
+
+    dT = 0.1
+    save_every = 10000
+
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
     t_span = (0, t_end) ./ (1/Γ);
     
     ω1 = 2π * (energy(states[end]) - energy(states[1])) + Δ1
@@ -329,9 +366,15 @@ function make_problem_with_param(molecule_package, param)
     ω3 = 2π * (energy(states[end]) - energy(states[5])) + Δ3
     ω4 = 2π * (energy(states[end]) - energy(states[5])) + Δ4
 
+<<<<<<< HEAD
     ϵ_(ϵ, f) = t -> ϵ
     s_func(s) = (x,t) -> s
     # ϵ_(ϵ, f) = t -> exp(-im*2π*f*t/500) .* ϵ
+=======
+    # ϵ_(ϵ, f) = t -> ϵ
+    s_func(s) = t -> s
+    ϵ_(ϵ, f) = t -> exp(-im*2π*f*t/500) .* ϵ
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
     
     ϕs = [exp(im*2π*rand()),exp(im*2π*rand()),exp(im*2π*rand()),exp(im*2π*rand()),exp(im*2π*rand()),exp(im*2π*rand())]
 
@@ -373,12 +416,20 @@ function make_problem_with_param(molecule_package, param)
 
     lasers = [lasers_1;lasers_2; lasers_3; lasers_4]
         
+<<<<<<< HEAD
     p = schrodinger_stochastic(particle, states, lasers, d, ψ₀, m/(ħ*k^2/Γ), n_excited;
+=======
+    p = schrodinger_stochastic(particle, states, lasers, d, ψ₀, m/(ħ*k^2/Γ), dT, save_every, n_excited;
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
     extra_p=extra_p, λ=λ, Γ=Γ, update_H=update_H)
 
     prob = ODEProblem(ψ_stochastic!, p.ψ, t_span, p)
 
     randomize_initial_vector!(prob.p, x_dist, y_dist, z_dist, vx_dist, vy_dist, vz_dist)
+<<<<<<< HEAD
+=======
+    # fixed_initial_vector!(prob.p, 1e-3, 1e-3, 1e-3, 0,0,0)
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
     random_initial_state!(prob.p)
     
     return prob
@@ -405,17 +456,30 @@ function simulate_particles_v2(package, params)
     times = Array{Vector{Float64}}(undef, n_values) 
     photons_scattered = Array{Float64}(undef, n_values)
 
+<<<<<<< HEAD
     Threads.@threads for i ∈ 1:n_threads
+=======
+    cb = ContinuousCallback(condition, SE_collapse_pol_always!, nothing, save_positions=(false,false))
+
+    Threads.@threads for i ∈ 1:n_threads
+        cb_copy = deepcopy(cb)
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
     
         _batch_size = i <= remainder ? (batch_size + 1) : batch_size
         batch_start_idx = 1 + (i <= remainder ? (i - 1) : remainder) + batch_size * (i-1)
 
         for j ∈ batch_start_idx:(batch_start_idx + _batch_size - 1) 
 
+<<<<<<< HEAD
             prob_copy = make_problem_with_param(package, params)
             cb_copy = ContinuousCallback(condition, SE_collapse_pol_always!, nothing, save_positions=(false,false))
             
             sol = DifferentialEquations.solve(prob_copy, alg=DP5(), reltol=1e-3, callback=cb_copy, saveat=1000, maxiters=10000000)
+=======
+            prob_copy = make_problem_with_param(package, params);
+
+            sol = DifferentialEquations.solve(prob_copy, alg=DP5(), reltol=1e-3, callback=cb_copy, saveat=10000, maxiters=10000000)
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
             plot_us = sol.u
             plot_ts = sol.t
 
@@ -457,11 +521,14 @@ function plot_all_trajectories(results, direction)
         for j in 1:length(results.times)
            plot!(results.times[j], results.z_trajectories[j])
         end
+<<<<<<< HEAD
     elseif direction == "all"
         plot(legend=false, title="distance from centre", xlabel="time (ms)",ylabel="position (mm)")
         for j in 1:length(results.times)
            plot!(results.times[j], sqrt.(results.z_trajectories[j].^2 + results.x_trajectories[j].^2 + results.y_trajectories[j].^2))
         end
+=======
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
     end    
 end
 
@@ -747,7 +814,11 @@ function save_results(saving_dir, test_i, results)
     folder = @sprintf("test%d", test_i)
     folder_dir = joinpath(saving_dir, folder)
     serialize(joinpath(folder_dir, "results.jl"), results)
+<<<<<<< HEAD
     # write_summarized_results(saving_dir, test_i, results)
+=======
+    write_summarized_results(saving_dir, test_i, results)
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
 end
 
 function load_results(saving_dir, test_i)
@@ -860,6 +931,7 @@ function write_test_info(saving_dir, test_i, params)
     end;
 end
 ;
+<<<<<<< HEAD
 
 function survived(idx, times, trajectories)
     _survived = Int64[]
@@ -902,3 +974,5 @@ function get_points_from_results(results, it)
     end
     return points
 end;
+=======
+>>>>>>> feb6028afdd4b3bfd6d841bab7239e95731db88f
