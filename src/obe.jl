@@ -3,8 +3,10 @@ import StructArrays: StructArray, StructVector
 import StaticArrays: @SVector
 import LinearAlgebra: norm, ⋅, adjoint!, diag
 import LoopVectorization: @turbo
-
+import LinearAlgebra: det
 export Particle, schrödinger, obe
+
+
 
 """
 Structure for quantum jumps from state `s` to state `s′` with rate `r`.
@@ -63,7 +65,8 @@ function round_params(p)
 end
 export round_params
 
-function obe(ρ0, particle, states, fields, d, d_m, should_round_freqs, include_jumps, λ=1.0, Γ=2π, freq_res=1e-2, extra_p=nothing)
+function obe(ρ0, particle, states, fields, d, should_round_freqs, include_jumps; 
+    sim_params=nothing, extra_data=nothing, λ=1.0, Γ=2π, freq_res=1e-2, update_H_and_∇H=update_H_and_∇H)
 
     period = 2π / freq_res
 
@@ -124,6 +127,8 @@ function obe(ρ0, particle, states, fields, d, d_m, should_round_freqs, include_
     ds_state2 = [Int64[], Int64[], Int64[]]
     for s′ in eachindex(states), s in s′:n_states, q in qs
         dme = d[s′, s, q+2]
+        # println(dme, " ", s′, " ", s)
+        # println(states[s′].E, " ", states[s].E)
         if abs(dme) > 1e-10 && (states[s′].E < states[s].E) # only energy-allowed jumps are generated
         # if (states[s′].E < states[s].E) # only energy-allowed jumps are generated
             push!(ds_state1[q+2], s)
@@ -135,7 +140,7 @@ function obe(ρ0, particle, states, fields, d, d_m, should_round_freqs, include_
     end
     ds = [StructArray(ds[1]), StructArray(ds[2]), StructArray(ds[3])]
 
-    # The last 3 indices are for the force
+    # The last 3 indices are for the integrated force
     populations = diag(ρ0)
     ρ0_vec = [[ρ0[i] for i ∈ eachindex(ρ0)]; populations; zeros(3)]
 
@@ -158,11 +163,119 @@ function obe(ρ0, particle, states, fields, d, d_m, should_round_freqs, include_
         d=d, d_nnz=d_nnz,
         E=E, E_k=E_k,
         ds=ds, ds_state1=ds_state1, ds_state2=ds_state2,
-        extra_p=extra_p)
+        sim_params=sim_params,
+        extra_data=extra_data,
+        update_H_and_∇H=update_H_and_∇H)
 
     return p
 end
 export obe
+
+
+function obe_old(ρ0, particle, states, fields, d, should_round_freqs, include_jumps; 
+    λ=1.0, Γ=2π, freq_res=1e-2, extra_p=extra_p)
+
+    period = 2π / freq_res
+
+    n_states = length(states)
+    # n_fields = length(fields)
+
+    states = StructArray(states)
+    # if n_fields > 0
+        fields = StructArray(fields)
+    # end
+    
+    k = 2π / λ
+    # particle.r0 *= 2π #(1 / k)  # `r` is in units of 1/k
+    # particle.v /= (Γ / k) # velocity is in units of Γ/k
+    # Convert to angular frequencies
+    for i ∈ eachindex(fields)
+        fields.ω[i] /= Γ
+    end
+    for i ∈ eachindex(states)
+        states.E[i] *= 2π
+        states.E[i] /= Γ
+    end
+
+    if should_round_freqs
+        round_freqs!(states, fields, freq_res)
+        particle.v = round_vel(particle.v, freq_res)
+    end
+
+    r0 = particle.r0
+    r = particle.r
+    v = particle.v
+
+    type_complex = ComplexF64
+
+    H = StructArray( zeros(type_complex, n_states, n_states) )
+
+    ω = [state.E for state ∈ states]
+    eiωt = StructArray(zeros(type_complex, n_states))
+
+    ρ_soa = StructArray(zeros(ComplexF64, n_states, n_states))
+    dρ_soa = deepcopy(ρ_soa)
+
+    # Allocate some temporary arrays
+    H₀ = deepcopy(ρ_soa)
+    tmp = deepcopy(ρ_soa)
+
+    # Compute cartesian indices to indicate nonzero transition dipole moments in `d`
+    # Indices below the diagonal of the Hamiltonian are removed, since those are defined via taking the conjugate
+    d_nnz_m = [cart_idx for cart_idx ∈ findall(d[:,:,1] .!= 0) if cart_idx[2] >= cart_idx[1]]
+    d_nnz_0 = [cart_idx for cart_idx ∈ findall(d[:,:,2] .!= 0) if cart_idx[2] >= cart_idx[1]]
+    d_nnz_p = [cart_idx for cart_idx ∈ findall(d[:,:,3] .!= 0) if cart_idx[2] >= cart_idx[1]]
+    d_nnz = [d_nnz_m, d_nnz_0, d_nnz_p]
+
+    # Create jumps corresponding to spontaneous decay
+    Js = Array{Jump}(undef, 0)
+    ds = [Complex{Float64}[], Complex{Float64}[], Complex{Float64}[]]
+    ds_state1 = [Int64[], Int64[], Int64[]]
+    ds_state2 = [Int64[], Int64[], Int64[]]
+    for s′ in eachindex(states), s in s′:n_states, q in qs
+        dme = d[s′, s, q+2]
+        # println(dme, " ", s′, " ", s)
+        # println(states[s′].E, " ", states[s].E)
+        if abs(dme) > 1e-10 && (states[s′].E < states[s].E) # only energy-allowed jumps are generated
+        # if (states[s′].E < states[s].E) # only energy-allowed jumps are generated
+            push!(ds_state1[q+2], s)
+            push!(ds_state2[q+2], s′)
+            push!(ds[q+2], dme)
+            J = Jump(s, s′, q, dme)
+            push!(Js, J)
+        end
+    end
+    ds = [StructArray(ds[1]), StructArray(ds[2]), StructArray(ds[3])]
+
+    # The last 3 indices are for the integrated force
+    populations = diag(ρ0)
+    ρ0_vec = [[ρ0[i] for i ∈ eachindex(ρ0)]; populations; zeros(3)]
+
+    force_last_period = SVector(0.0, 0.0, 0.0)
+
+    # Some additional arrays to hold information about fields
+    # fields_ϵ = [SVector{3, ComplexF64}(0.,0.,0.) for _ ∈ eachindex(fields)]
+    # fields_kr = zeros(length(fields))
+    # fields_re = zeros(length(fields))
+    # fields_im = zeros(length(fields))
+
+    E = @SVector Complex{Float64}[0,0,0]
+    E_k = [@SVector Complex{Float64}[0,0,0] for _ ∈ 1:3]
+
+    p = MutableNamedTuple(
+        H=H, particle=particle, ρ0=ρ0, ρ0_vec=ρ0_vec, ρ_soa=ρ_soa, dρ_soa=dρ_soa, Js=Js, eiωt=eiωt, ω=ω,
+        states=states, fields=fields, r0=r0, r=r, v=v, Γ=Γ, tmp=tmp, λ=λ,
+        period=period, k=k, freq_res=freq_res, H₀=H₀,
+        force_last_period=force_last_period, populations=populations,
+        d=d, d_nnz=d_nnz,
+        E=E, E_k=E_k,
+        ds=ds, ds_state1=ds_state1, ds_state2=ds_state2,
+        extra_p=extra_p
+        )
+
+    return p
+end
+export obe_old
 
 function soa_to_base!(ρ::Array{<:Complex}, ρ_soa::StructArray{<:Complex})
     @inbounds for i in eachindex(ρ_soa)
@@ -227,11 +340,11 @@ export Heisenberg!
     Apply the transformation (A)_(ij) -> (A)_(ij) * exp(-iω_it) * exp(+iω_jt)
 """
 function Heisenberg!(A::StructArray{<:Complex}, eiωt::StructArray{<:Complex})
-    @inbounds for j ∈ 1:size(A, 2)
+    @inbounds for j ∈ axes(A, 2)
         jre = eiωt.re[j]
         jim = -eiωt.im[j] # negative sign to get exp(-iω_it) rather than exp(iω_it)
         # jim = eiωt.im[j] # negative sign to get exp(-iω_it) rather than exp(iω_it)
-        for i ∈ 1:size(A, 1)
+        for i ∈ axes(A, 1)
             ire = eiωt.re[i]
             # iim = -eiωt.im[i] # added negative sign on 10/20/23 --> shouldn't the negative sign be here?
             iim = eiωt.im[i]
@@ -246,6 +359,38 @@ function Heisenberg!(A::StructArray{<:Complex}, eiωt::StructArray{<:Complex})
     return nothing
 end
 export Heisenberg!
+
+function Heisenberg_turbo!(A::StructArray{<:Complex}, eiωt::StructArray{<:Complex}, sign=+1)
+    @turbo for j ∈ axes(A, 2)
+        jre = eiωt.re[j]
+        jim = sign * (-eiωt.im[j]) # negative sign to get exp(-iω_it) rather than exp(iω_it)
+        for i ∈ axes(A, 1)
+            ire = eiωt.re[i]
+            iim = sign * eiωt.im[i]
+            cisim = iim * jre + ire * jim
+            cisre = ire * jre - iim * jim
+            Are_i = A.re[i,j]
+            Aim_i = A.im[i,j]
+            A.re[i,j] = Are_i * cisre - Aim_i * cisim
+            A.im[i,j] = Are_i * cisim + Aim_i * cisre
+        end
+    end
+    return nothing
+end
+export Heisenberg_turbo!
+
+function Heisenberg_turbo_state!(v::StructArray{<:Complex}, eiωt::StructArray{<:Complex}, sign=+1)
+    @turbo for i ∈ eachindex(eiωt)
+        eiωt_re = eiωt.re[i]
+        eiωt_im = sign * eiωt.im[i]
+        vre_i = v.re[i]
+        vim_i = v.im[i]
+        v.re[i] = vre_i * eiωt_re - vim_i * eiωt_im
+        v.im[i] = vre_i * eiωt_im + vim_i * eiωt_re
+    end
+    return nothing
+end
+export Heisenberg_turbo_state!
 
 function Heisenberg_nocomplex!(A_re::Array{<:Real}, A_im::Array{<:Real}, eiωt_re::Array{<:Real}, eiωt_im::Array{<:Real})
     @inbounds for j ∈ 1:size(A_re, 2)
@@ -372,11 +517,88 @@ function ρ!(dρ, ρ, p, τ)
     for i ∈ axes(ρ_soa, 1)
         dρ[n+i] = ρ_soa[i,i]
     end
-    dρ[end-2:end] = force_noupdate(E_k, ds, ds_state1, ds_state2, ρ_soa)
+    f = force_noupdate(E_k, ds, ds_state1, ds_state2, ρ_soa)
+    dρ[end-2:end] = f
 
     return nothing
 end
 export ρ!
+
+function ρ_updated!(dρ, ρ, p, t)
+
+    @unpack H, H₀, E, E_k, dρ_soa, ρ_soa, tmp, Js, eiωt, ω, fields, ds, ds_state1, ds_state2, Γ, r, r0, v, Js = p
+
+    r .= r0 .+ v * t
+
+    base_to_soa!(ρ, ρ_soa)
+
+    # Update the Hamiltonian according to the new time τ
+    update_H_obes!(p, t, r, H₀, fields, H, E_k, ds, ds_state1, ds_state2, Js)
+
+    # add additional part of Hamiltonian that is not light-molecule part
+    ∇H = p.update_H_and_∇H(H₀, p, r, t) # in schrodinger picutre
+    # Heisenberg!(H₀, eiωt) # convert to interaction picture
+    
+    @turbo for i ∈ eachindex(H)
+        H.re[i] += H₀.re[i]
+        H.im[i] += H₀.im[i]
+    end
+
+    # Apply a transformation to go to the interaction picture
+    update_eiωt!(eiωt, ω, t)
+    Heisenberg_obes!(ρ_soa, eiωt, +1.0)
+
+    # Compute coherent evolution terms
+    im_commutator!(dρ_soa, H, ρ_soa, tmp)
+
+    # Add the terms ∑ᵢJᵢρJᵢ†
+    # We assume jumps take the form Jᵢ = sqrt(Γ)|g⟩⟨e| such that JᵢρJᵢ† = Γ^2|g⟩⟨g|ρₑₑ
+    @inbounds for i ∈ eachindex(Js)
+        J = Js[i]
+        dρ_soa[J.s′, J.s′] += J.r^2 * ρ_soa[J.s, J.s]
+        @inbounds for j ∈ (i+1):length(Js)
+            J′ = Js[j]
+            if J.q == J′.q
+                val = J.r * J′.r * ρ_soa[J.s, J′.s]
+                dρ_soa[J.s′, J′.s′] += val
+                dρ_soa[J′.s′, J.s′] += conj(val)
+            end
+        end
+    end
+
+    # The left-hand side also needs to be transformed into the Heisenberg picture
+    # To do this, we require the transpose of the `ω` matrix
+    Heisenberg_obes!(dρ_soa, eiωt, -1.0)
+    soa_to_base!(dρ, dρ_soa)
+
+    n = length(ρ_soa)
+    for i ∈ axes(ρ_soa, 1)
+        dρ[n+i] = ρ_soa[i,i]
+    end
+
+    f = force_noupdate(E_k, ds, ds_state1, ds_state2, ρ_soa)
+    H₀_expectation = H_exp(H₀, ρ_soa)
+    f += ∇H .* (-H₀_expectation) # force due to conservative potential
+
+    dρ[end-2:end] = f
+
+    return nothing
+end
+export ρ_updated!
+
+function operator_matrix_expectation(O_Heisenberg, state)
+    O_exp = zero(Float64)
+    @turbo for i ∈ eachindex(state)
+        state_i_re = state.re[i]
+        state_i_im = state.im[i]
+        for j ∈ eachindex(state)
+            # second term in addition below is the imaginary part, which has a positive sign because we take the conjugate of state
+            O_exp += O_Heisenberg.re[i,j] * (state_i_re * state.re[j] + state_i_im * state.im[j])
+        end
+    end
+    return O_exp
+end
+export operator_matrix_expectation
 
 function mat_to_vec!(ρ, ρ_vec)
     @turbo for i in eachindex(ρ)
@@ -576,8 +798,8 @@ export rotate_pol
 # Multiplication using `@turbo` from LoopVectorization
 function mul_turbo!(C, A, B)
     @turbo for m ∈ 1:size(A,1), n ∈ 1:size(B,2)
-        Cmn_re = 0.0
-        Cmn_im = 0.0
+        Cmn_re = zero(eltype(C))
+        Cmn_im = zero(eltype(C))
         for k ∈ 1:size(A,2)
             A_mk_re = A.re[m,k]
             A_mk_im = A.im[m,k]
@@ -590,6 +812,55 @@ function mul_turbo!(C, A, B)
         C.im[m,n] = Cmn_im
     end
 end
+export mul_turbo!
+
+function mul_turbo_conjA!(C, A, B)
+    @turbo for m ∈ 1:size(A,1), n ∈ 1:size(B,2)
+        Cmn_re = zero(eltype(C))
+        Cmn_im = zero(eltype(C))
+        for k ∈ 1:size(A,2)
+            A_mk_re = A.re[m,k]
+            A_mk_im = -A.im[m,k]
+            B_kn_re = B.re[k,n]
+            B_kn_im = B.im[k,n]
+            Cmn_re += A_mk_re * B_kn_re - A_mk_im * B_kn_im
+            Cmn_im += A_mk_re * B_kn_im + A_mk_im * B_kn_re
+        end
+        C.re[m,n] = Cmn_re
+        C.im[m,n] = Cmn_im
+    end
+end
+export mul_turbo_conjA!
+
+function jgemturbo!(y, A, x)
+    @turbo for i ∈ eachindex(y)
+        yi_re = zero(eltype(y))
+        yi_im = zero(eltype(y))
+        for j ∈ eachindex(x)
+            A_ij_re = A.re[i,j]
+            A_ij_im = A.im[i,j]
+            x_j_re = x.re[j]
+            x_j_im = x.im[j]
+            yi_re += A_ij_re * x_j_re - A_ij_im * x_j_im
+            yi_im += A_ij_re * x_j_im + A_ij_im * x_j_re
+        end
+        y.re[i] = yi_re
+        y.im[i] = yi_im
+    end
+    return nothing
+end
+export jgemturbo!
+
+function mul_turbo_real!(C, A, B)
+    @turbo for m ∈ axes(A,1), n ∈ axes(B,2)
+        Cmn = zero(eltype(C))
+        for k ∈ axes(A,2)
+            Cmn += A[m,k] * B[k,n]
+        end
+        C[m,n] = Cmn
+    end
+end
+export mul_turbo_real!
 
 function mul_turbo_nocomplex!(n_states, dψ, H_re, H_im, ψ)
     @inbounds for i ∈ 1:n_states

@@ -163,6 +163,87 @@ function SE_collapse_pol!(integrator)
 end
 export SE_collapse_pol!
 
+function SE_collapse_pol_always_v2!(integrator)
+
+    p = integrator.p
+    n_states = p.n_states
+    n_excited = p.n_excited
+    n_ground = p.n_ground
+    d = p.d
+    ψ = integrator.u
+    
+    # A photon is observed.
+    # Measure the polarization of the photon along z.
+    p⁺ = 0.0
+    p⁰ = 0.0
+    p⁻ = 0.0
+    
+    @inbounds @fastmath for i ∈ 1:n_excited
+        ψ_i = ψ[n_ground+i]
+        ψ_pop = real(ψ_i)^2 + imag(ψ_i)^2
+        for j ∈ 1:n_ground
+            p⁺ += ψ_pop * norm(d[j,n_ground+i,1])^2
+            p⁰ += ψ_pop * norm(d[j,n_ground+i,2])^2
+            p⁻ += ψ_pop * norm(d[j,n_ground+i,3])^2
+        end
+        # note the polarization p in d[:,:,p] is defined to be m_e - m_g, 
+        # whereas the polarization of the emitted photon is m_g - m_e
+    end
+    
+    p_norm = p⁺ + p⁰ + p⁻
+    rn = rand() * p_norm
+    @inbounds @fastmath for i ∈ 1:n_ground
+        ψ[i] = 0.0
+    end
+    
+    pol = 0
+    if 0 < rn <= p⁺ # photon is measured to have polarization σ⁺
+        pol = 1
+    elseif p⁺ < rn <= p⁺ + p⁰ # photon is measured to have polarization σ⁰
+        pol = 2
+    else # photon is measured to have polarization σ⁻
+        pol = 3
+    end
+    
+    @inbounds @fastmath for i in 1:n_ground
+        for j in (n_ground+1):n_states
+            ψ[i] += ψ[j] * d[i,j,pol]
+        end
+    end
+    
+    # zero excited state amplitudes
+    @inbounds @fastmath for i ∈ (n_ground + 1):n_states
+        ψ[i] = 0.0
+    end
+
+    ψ_norm = 0.0
+    @inbounds @fastmath for i ∈ 1:n_states
+        ψ_norm += real(ψ[i])^2 + imag(ψ[i])^2
+    end
+    ψ_norm = sqrt(ψ_norm)
+    @inbounds @fastmath for i ∈ 1:n_states
+        ψ[i] /= ψ_norm
+    end
+    
+    p.n_scatters += 1
+    
+    # zero excited state populations
+    @inbounds @fastmath for i ∈ (n_states+1):(n_states+n_excited)
+        integrator.u[i] = 0.0
+    end
+    
+    dp = sample_direction(1)
+    dv = dp ./ p.mass
+    integrator.u[n_states + n_excited + 4] += 2 * dv[1]
+    integrator.u[n_states + n_excited + 5] += 2 * dv[2]
+    integrator.u[n_states + n_excited + 6] += 2 * dv[3]
+    
+    p.time_to_decay = rand(p.decay_dist)
+
+    return nothing
+end
+export SE_collapse_pol_always_v2!
+
 function SE_collapse_pol_always!(integrator)
 
     p = integrator.p
@@ -215,6 +296,7 @@ function SE_collapse_pol_always!(integrator)
         ψ[i] = 0.0
     end
     
+    # is this required?
     ψ_norm = 0.0
     for i ∈ 1:n_states
         ψ_norm += norm(ψ[i])^2
@@ -231,6 +313,27 @@ function SE_collapse_pol_always!(integrator)
         integrator.u[i] = 0.0
     end
 
+    # # add a repumper photon kick along the x-axis
+    # repump_states_prob = 1/150 # 1/150 photons are repumped with a laser that is not retroreflected
+    # if rand() < repump_states_prob
+    #     integrator.u[n_states + n_excited + 4] += 2 / p.mass # 2 photons are required to repump on average
+    # end
+
+    # repump_states_prob = 1/20 # 1/20 photons are not (000), and on average two photon scatters are required to repump
+    # if rand() < repump_states_prob
+    #     dp = sample_direction(1)
+    #     dv = dp ./ p.mass
+    #     integrator.u[n_states + n_excited + 4] += dv[1]
+    #     integrator.u[n_states + n_excited + 5] += dv[2]
+    #     integrator.u[n_states + n_excited + 6] += dv[3]
+        
+    #     dp = sample_direction(1)
+    #     dv = dp ./ p.mass
+    #     integrator.u[n_states + n_excited + 4] += dv[1]
+    #     integrator.u[n_states + n_excited + 5] += dv[2]
+    #     integrator.u[n_states + n_excited + 6] += dv[3]
+    # end
+
      # reset excited state population accumulation
     # integrator.u[n_states + 1:n_states + n_excited] .= 0
     
@@ -238,19 +341,26 @@ function SE_collapse_pol_always!(integrator)
 #         integrator.p.populations[i] = norm(integrator.u[i])^2
 #     end
     
+    # add SE recoil
     dp = sample_direction(1)
     dv = dp ./ p.mass
-    integrator.u[n_states + n_excited + 4] += 2 * dv[1]
-    integrator.u[n_states + n_excited + 5] += 2 * dv[2]
-    integrator.u[n_states + n_excited + 6] += 2 * dv[3]
-    
+    integrator.u[n_states + n_excited + 4] += dv[1]
+    integrator.u[n_states + n_excited + 5] += dv[2]
+    integrator.u[n_states + n_excited + 6] += dv[3]
+
+    time_before_decay = integrator.t - p.last_decay_time
+    for i ∈ 1:3
+        integrator.u[p.n_states + p.n_excited + 3 + i] += rand((-1,1)) * sqrt( 2p.diffusion_constant * time_before_decay ) / p.mass
+    end
+    p.last_decay_time = integrator.t
+
     p.time_to_decay = rand(p.decay_dist)
 
     return nothing
 end
 export SE_collapse_pol_always!
-    
-function SE_collapse_pol_always_nocomplex!(integrator)
+
+function SE_collapse_pol_custom!(integrator)
 
     p = integrator.p
     n_states = p.n_states
@@ -266,7 +376,7 @@ function SE_collapse_pol_always_nocomplex!(integrator)
     p⁻ = 0.0
     
     for i ∈ 1:n_excited
-        ψ_pop = ψ[n_ground + i]^2 + ψ[n_states + n_ground + i]^2
+        ψ_pop = norm(ψ[n_ground + i])^2
         for j ∈ 1:n_ground
             p⁺ += ψ_pop * norm(d[j,n_ground+i,1])^2
             p⁰ += ψ_pop * norm(d[j,n_ground+i,2])^2
@@ -278,11 +388,8 @@ function SE_collapse_pol_always_nocomplex!(integrator)
     
     p_norm = p⁺ + p⁰ + p⁻
     rn = rand() * p_norm
-
-    # Set all ground state populations to zero, since the observation of spontaneous decay implies that the particle was excited
     for i ∈ 1:n_ground
         ψ[i] = 0.0
-        ψ[i+n_states] = 0.0
     end
     
     pol = 0
@@ -294,48 +401,170 @@ function SE_collapse_pol_always_nocomplex!(integrator)
         pol = 3
     end
     
-    # assumes that d is real
     for i in 1:n_ground
         for j in (n_ground+1):n_states
             ψ[i] += ψ[j] * d[i,j,pol]
-            ψ[i+n_states] += ψ[j+n_states] * d[i,j,pol]
         end
     end
     
     # zero excited state amplitudes
     for i ∈ (n_ground + 1):n_states
         ψ[i] = 0.0
-        ψ[i+n_states] = 0.0
     end
     
-    # Normalize population
+    # is this required?
     ψ_norm = 0.0
     for i ∈ 1:n_states
-        ψ_norm += ψ[i]^2 + ψ[n_states+i]^2
+        ψ_norm += norm(ψ[i])^2
     end
     ψ_norm = sqrt(ψ_norm)
-    for i ∈ 1:2n_states
+    for i ∈ 1:n_states
         ψ[i] /= ψ_norm
     end
     
     p.n_scatters += 1
     
     # zero excited state populations
-    for i ∈ (2n_states+1):(2n_states+n_excited)
+    for i ∈ (n_states+1):(n_states+n_excited)
         integrator.u[i] = 0.0
     end
+
+    # # add a repumper photon kick along the x-axis
+    repump_states_prob = 1/150 # 1/150 photons are repumped with a laser that is not retroreflected
+    if rand() < repump_states_prob
+        integrator.u[n_states + n_excited + 4] += 2 / p.mass # 2 photons are required to repump on average
+    end
+
     
-    dp = sample_direction(1)
-    dv = dp ./ p.mass
-    integrator.u[2n_states + n_excited + 4] += dv[1]
-    integrator.u[2n_states + n_excited + 5] += dv[2]
-    integrator.u[2n_states + n_excited + 6] += dv[3]
+    
+    
+    # photon recoils with custum recoil momentum (equivalent to a custum number of recoils)
+    
+    s = integrator.p.sim_params.s_total
+    C3 = integrator.p.sim_params.C3
+    C5 = integrator.p.sim_params.C5
+    C7 = integrator.p.sim_params.C7
+    threshold_1 = s^(1/2) / (s^(1/2) + 1/factorial(3) * C3 * s^(3/2) + 1/factorial(5) * C5 * s^(5/2) + 1/factorial(7) * C7 * s^(7/2))
+    threshold_3 = threshold_1 + 1/6 * C3 * s^(3/2) / (s^(1/2) + 1/factorial(3) * C3 * s^(3/2) + 1/factorial(5) * C5 * s^(5/2) + 1/factorial(7) * C7 * s^(7/2))
+    threshold_5 = threshold_3 + 1/120 * C5 * s^(5/2) / (s^(1/2) + 1/factorial(3) * C3 * s^(3/2) + 1/factorial(5) * C5 * s^(5/2) + 1/factorial(7) * C7 * s^(7/2))
+    n_rand = rand()
+    n_kicks = 1
+    if n_rand < threshold_1
+        n_kicks = 1
+    elseif n_rand < threshold_3
+        n_kicks = 3
+    elseif n_rand < threshold_5
+        n_kicks = 5
+    else
+        n_kicks = 7
+    end
+    
+    
+    for _ ∈ 1:n_kicks + 1
+        dp = sample_direction(1)
+        dv = dp ./ p.mass
+        integrator.u[n_states + n_excited + 4] += dv[1]
+        integrator.u[n_states + n_excited + 5] += dv[2]
+        integrator.u[n_states + n_excited + 6] += dv[3]
+    end
+
+    p.time_to_decay = rand(p.decay_dist)
+
+    return nothing
+end
+export SE_collapse_pol_custom!
+
+function SE_collapse_pol_always_repump!(integrator, count_scatter=true, number_recoils=1)
+
+    p = integrator.p
+    n_states = p.n_states
+    n_excited = p.n_excited
+    n_ground = p.n_ground
+    d = p.d
+    ψ = integrator.u
+    
+    # A photon is observed.
+    # Measure the polarization of the photon along z.
+    p⁺ = 0.0
+    p⁰ = 0.0
+    p⁻ = 0.0
+    
+    for i ∈ 1:n_excited
+        ψ_pop = norm(ψ[n_ground + i])^2
+        for j ∈ 1:n_ground
+            p⁺ += ψ_pop * norm(d[j,n_ground+i,1])^2
+            p⁰ += ψ_pop * norm(d[j,n_ground+i,2])^2
+            p⁻ += ψ_pop * norm(d[j,n_ground+i,3])^2
+        end
+        # note the polarization p in d[:,:,p] is defined to be m_e - m_g, 
+        # whereas the polarization of the emitted photon is m_g - m_e
+    end
+    
+    p_norm = p⁺ + p⁰ + p⁻
+    rn = rand() * p_norm
+    for i ∈ 1:n_ground
+        ψ[i] = 0.0
+    end
+    
+    pol = 0
+    if 0 < rn <= p⁺ # photon is measured to have polarization σ⁺
+        pol = 1
+    elseif p⁺ < rn <= p⁺ + p⁰ # photon is measured to have polarization σ⁰
+        pol = 2
+    else # photon is measured to have polarization σ⁻
+        pol = 3
+    end
+    
+    for i in 1:n_ground
+        for j in (n_ground+1):n_states
+            ψ[i] += ψ[j] * d[i,j,pol]
+        end
+    end
+    
+    # zero excited state amplitudes
+    for i ∈ (n_ground + 1):n_states
+        ψ[i] = 0.0
+    end
+    
+    # is this required?
+    ψ_norm = 0.0
+    for i ∈ 1:n_states
+        ψ_norm += norm(ψ[i])^2
+    end
+    ψ_norm = sqrt(ψ_norm)
+    for i ∈ 1:n_states
+        ψ[i] /= ψ_norm
+    end
+    
+    if count_scatter
+        p.n_scatters += 1
+    end
+    
+    # zero excited state populations
+    for i ∈ (n_states+1):(n_states+n_excited)
+        integrator.u[i] = 0.0
+    end
+
+    # # add a repumper photon kick along the x-axis
+    # repump_states_prob = 1/150 # 1/150 photons are repumped with a laser that is not retroreflected
+    # if rand() < repump_states_prob
+    #     integrator.u[n_states + n_excited + 4] += 2 / p.mass # 2 photons are required to repump on average
+    # end
+    
+    # add two photon recoils
+    for _ ∈ 1:number_recoils
+        dp = sample_direction(1)
+        dv = dp ./ p.mass
+        integrator.u[n_states + n_excited + 4] += dv[1]
+        integrator.u[n_states + n_excited + 5] += dv[2]
+        integrator.u[n_states + n_excited + 6] += dv[3]
+    end
     
     p.time_to_decay = rand(p.decay_dist)
 
     return nothing
 end
-export SE_collapse_pol_always_nocomplex!
+export SE_collapse_pol_always_repump!
 
 function spontaneous_emission_event(p, i_excited)
     """ 
@@ -367,7 +596,7 @@ export sample_direction
 
 function schrodinger_stochastic(
     particle, states, fields, d, ψ₀, mass, n_excited;
-    sim_params=nothing, extra_data=nothing, λ=1.0, Γ=2π, update_H_and_∇H=update_H_and_∇H)
+    sim_params=nothing, extra_data=nothing, λ=1.0, Γ=2π, update_H_and_∇H=update_H_and_∇H, diffusion_constant=0.0)
     """
     extra_p should contain n_excited
     
@@ -464,7 +693,10 @@ function schrodinger_stochastic(
         n_excited=n_excited,
         trajectory=Vector{ComplexF64}[],
         decay_dist=decay_dist,
-        time_to_decay=rand(decay_dist)
+        time_to_decay=rand(decay_dist),
+        last_decay_time=0.0,
+        diffusion_constant=diffusion_constant,
+        time_before_decay=0.0
         )
 
     return p
@@ -472,27 +704,27 @@ end
 export schrodinger_stochastic
 
 # Condition function used to determine when the particle decays
-function condition(u,t,integrator)
+# function condition(u,t,integrator)
+#     p = integrator.p
+#     integrated_excited_pop = 0.0
+#     for i ∈ 1:p.n_excited
+#         integrated_excited_pop += real(u[p.n_states+i])
+#     end
+#     _condition = integrated_excited_pop - p.time_to_decay
+#     return _condition
+# end
+# export condition
+
+function condition_discrete(u,t,integrator)
     p = integrator.p
-    integrated_excited_pop = 0.0
-    for i ∈ 1:p.n_excited
+    integrated_excited_pop = zero(Float64)
+    @inbounds @fastmath for i ∈ 1:p.n_excited
         integrated_excited_pop += real(u[p.n_states+i])
     end
     _condition = integrated_excited_pop - p.time_to_decay
-    return _condition
+    return _condition > 0
 end
-export condition
-
-function condition_nocomplex(u,t,integrator)
-    p = integrator.p
-    integrated_excited_pop = 0.0
-    for i ∈ 1:p.n_excited
-        integrated_excited_pop += u[2*p.n_states+i]
-    end
-    _condition = integrated_excited_pop - p.time_to_decay
-    return _condition
-end
-export condition_nocomplex
+export condition_discrete
 
 function ψ_stochastic!(dψ, ψ, p, τ)
     @unpack ψ_soa, dψ_soa, r, H₀, ω, fields, H, E_k, ds, ds_state1, ds_state2, Js, eiωt, states, extra_p, mass = p
@@ -544,7 +776,53 @@ function ψ_stochastic!(dψ, ψ, p, τ)
 end
 export ψ_stochastic!
 
-function force_stochastic(E_k, ds, ds_state1, ds_state2, ψ_soa, eiωt)
+# function force_stochastic(E_k, ds, ds_state1, ds_state2, ψ_soa, eiωt)
+#     F = @SVector Complex{Float64}[0,0,0]
+
+#     @inbounds @fastmath for q ∈ 1:3
+#         ds_q = ds[q]
+#         ds_q_re = ds_q.re
+#         ds_q_im = ds_q.im
+#         ds_state1_q = ds_state1[q]
+#         ds_state2_q = ds_state2[q]
+#         for k ∈ 1:3
+#             E_kq = E_k[k][q]
+#             E_kq_re = real(E_kq)
+#             E_kq_im = imag(E_kq)
+#             F_k_re = 0.0
+#             F_k_im = 0.0
+#             for j ∈ eachindex(ds_q)
+#                 m = ds_state1_q[j] # excited state
+#                 n = ds_state2_q[j] # ground state
+                
+#                 # construct ρ_mn = c_m c_n^*
+#                 # ρ_mn = conj(ψ_soa[n]*eiωt[n]) * ψ_soa[m]*eiωt[m]
+
+#                 c_m = ψ_soa[m] * conj(eiωt[m]) # exp(-iωt) factor to transform to Heisenberg picture
+#                 c_n = ψ_soa[n] * conj(eiωt[n]) # exp(-iωt) factor to transform to Heisenberg picture
+
+#                 ρ_mn = c_m * conj(c_n)
+
+#                 ρ_re = real(ρ_mn)
+#                 ρ_im = imag(ρ_mn)
+                
+#                 d_re = ds_q_re[j]
+#                 d_im = ds_q_im[j]
+
+#                 a1 = d_re * ρ_re - d_im * ρ_im
+#                 a2 = d_re * ρ_im + d_im * ρ_re
+#                 F_k_re += E_kq_re * a1 - E_kq_im * a2
+#                 F_k_im += E_kq_im * a1 + E_kq_re * a2     
+#             end
+#             F -= (im * F_k_re - F_k_im) * ê[k] # multiply by im
+#         end
+#     end
+#     F += conj(F)
+
+#     return real.(F)
+# end
+
+function force_stochastic_v2(E_k, ds, ds_state1, ds_state2, ψ_soa, eiωt)
     F = @SVector Complex{Float64}[0,0,0]
 
     @inbounds @fastmath for q ∈ 1:3
@@ -562,20 +840,16 @@ function force_stochastic(E_k, ds, ds_state1, ds_state2, ψ_soa, eiωt)
             for j ∈ eachindex(ds_q)
                 m = ds_state1_q[j] # excited state
                 n = ds_state2_q[j] # ground state
-                
-                # construct ρ_mn = c_m c_n^*
-                # ρ_mn = conj(ψ_soa[n]*eiωt[n]) * ψ_soa[m]*eiωt[m]
-
-                c_m = ψ_soa[m] * conj(eiωt[m]) # exp(-iωt) factor to transform to Heisenberg picture
-                c_n = ψ_soa[n] * conj(eiωt[n]) # exp(-iωt) factor to transform to Heisenberg picture
-
-                ρ_mn = c_m * conj(c_n)
-
-                ρ_re = real(ρ_mn)
-                ρ_im = imag(ρ_mn)
-                
                 d_re = ds_q_re[j]
                 d_im = ds_q_im[j]
+
+                c_m_re = ψ_soa.re[m]
+                c_m_im = ψ_soa.im[m]
+                c_n_re = ψ_soa.re[n]
+                c_n_im = -ψ_soa.im[n] # taking the conjugate 
+                
+                ρ_re = c_m_re * c_n_re - c_m_im * c_n_im
+                ρ_im = c_m_re * c_n_im + c_m_im * c_n_re
 
                 a1 = d_re * ρ_re - d_im * ρ_im
                 a2 = d_re * ρ_im + d_im * ρ_re
@@ -731,161 +1005,6 @@ function ψ_stochastic_nocomplex_v0!(dψ, ψ, p, τ)
 end
 export ψ_stochastic_nocomplex_v0!
 
-function ψ_stochastic_nocomplex!(dψ, ψ, p, τ)
-
-    @unpack ω, fields, H_re, H_im, E_k_re, E_k_im, ds, ds_state1, ds_state2, Js, eiωt_re, eiωt_im, states, extra_p, mass = p
-    
-    n_states = length(states)
-    n_excited = p.n_excited
-    
-    r = SVector(real(ψ[2n_states + n_excited + 1]), real(ψ[2n_states + n_excited + 2]), real(ψ[2n_states + n_excited + 3]))
-
-    ψ_norm = 0.0
-    for i ∈ 1:n_states
-        ψ_norm += ψ[i]^2 + ψ[n_states+i]^2
-    end
-    ψ_norm = sqrt(ψ_norm)
-    for i ∈ 1:2n_states
-        ψ[i] /= ψ_norm
-    end
-    
-    update_H_nocomplex!(p, τ, r, fields, H_re, H_im, E_k_re, E_k_im, ds, ds_state1, ds_state2, Js)
-    
-    update_eiωt_nocomplex!(eiωt_re, eiωt_im, ω, τ)
-    Heisenberg_nocomplex!(H_re, H_im, eiωt_re, eiωt_im)
-
-    # multiply ψ by -im
-    @turbo for i ∈ 1:n_states
-        ψ_re = ψ[i]
-        ψ[i] = ψ[n_states+i]
-        ψ[n_states+i] = -ψ_re
-    end
-    
-    mul_turbo_nocomplex!(n_states, dψ, H_re, H_im, ψ)
-    
-    # calculate force
-    f = force_stochastic_nocomplex(n_states, E_k_re, E_k_im, ds, ds_state1, ds_state2, ψ, eiωt_re, eiωt_im)
-
-    # accumulate excited state populations
-    for i ∈ 1:n_excited
-        dψ[2n_states + i] = ψ[n_states-n_excited+i]^2 + ψ[2n_states-n_excited+i]^2
-    end
-    
-    for i ∈ 1:3
-        dψ[2n_states + n_excited + i] = ψ[2n_states + n_excited + i + 3] # update position
-        dψ[2n_states + n_excited + i + 3] = f[i]/mass # update velocity
-    end
-
-    ψ[end-2:end] .= f
-    dψ[end-2:end] .= 0
-    
-    return nothing
-end
-export ψ_stochastic_nocomplex!
-
-function schrodinger_stochastic_nocomplex(
-    particle, states, fields, d, ψ₀, mass, n_excited;
-    extra_p=nothing, λ=1.0, Γ=2π, update_H=update_H)
-
-    n_states = length(states)
-
-    states = StructArray(states)
-    fields = StructArray(fields)
-
-    k = 2π / λ
-    
-    # time unit: 1/Γ
-    for i ∈ eachindex(fields)
-        fields.ω[i] /= Γ
-    end
-    for i ∈ eachindex(states)
-        states.E[i] *= 2π
-        states.E[i] /= Γ
-    end
-
-    r0 = particle.r0
-    r = particle.r
-    v = particle.v
-
-    T = Float64
-
-    H_re = zeros(T, n_states, n_states)
-    H_im = zeros(T, n_states, n_states)
-
-    ω = [s.E for s in states]
-    eiωt_re = zeros(T, n_states)
-    eiωt_im = zeros(T, n_states)
-
-    # Compute cartesian indices to indicate nonzero transition dipole moments in `d`
-    # Indices below the diagonal of the Hamiltonian are removed, since those are defined via taking the conjugate
-    d_nnz_m = [cart_idx for cart_idx ∈ findall(d[:,:,1] .!= 0) if cart_idx[2] >= cart_idx[1]]
-    d_nnz_0 = [cart_idx for cart_idx ∈ findall(d[:,:,2] .!= 0) if cart_idx[2] >= cart_idx[1]]
-    d_nnz_p = [cart_idx for cart_idx ∈ findall(d[:,:,3] .!= 0) if cart_idx[2] >= cart_idx[1]]
-    d_nnz = [d_nnz_m, d_nnz_0, d_nnz_p]
-
-    # Define jumps
-    Js = Array{Jump}(undef, 0)
-    ds = [Complex{Float64}[], Complex{Float64}[], Complex{Float64}[]]
-    ds_state1 = [Int64[], Int64[], Int64[]]
-    ds_state2 = [Int64[], Int64[], Int64[]]
-
-    for s′ in eachindex(states), s in s′:n_states, q in qs
-        dme = d[s′, s, q+2]
-        if abs(dme) > 1e-10 && (states[s′].E < states[s].E) # only energy-allowed jumps are generated
-        # if (states[s′].E < states[s].E) # only energy-allowed jumps are generated
-            push!(ds_state1[q+2], s)
-            push!(ds_state2[q+2], s′)
-            push!(ds[q+2], dme)
-            rate = norm(dme)^2 / 2
-            J = Jump(s, s′, q, rate)
-            push!(Js, J)
-        end
-    end
-    ds = [StructArray(ds[1]), StructArray(ds[2]), StructArray(ds[3])]
-    
-    # ψ contains the state vector (real and imaginary separated), accumulated excited state populations, position, velocity.
-    ψ = zeros(T, 2n_states + n_excited + 6 + 3)
-
-    ψ[1:n_states] .= ψ₀
-    ψ[2n_states + n_excited + 1:2n_states + n_excited + 3] .= r
-    ψ[2n_states + n_excited + 4:2n_states + n_excited + 6] .= v
-
-    E_re = @SVector T[0,0,0]
-    E_im = @SVector T[0,0,0]
-
-    E_k_re = [@SVector T[0,0,0] for _ ∈ 1:3]
-    E_k_im = [@SVector T[0,0,0] for _ ∈ 1:3]
-
-    decay_dist = Exponential(1)
-
-    # NOTE: mass with correct unit = dimensionless mass here * hbar * k^2 / Γ
-    p = MutableNamedTuple(
-        ψ=ψ,
-        H_re=H_re, H_im=H_im, 
-        ω=ω, 
-        eiωt_re=eiωt_re, 
-        eiωt_im=eiωt_im,
-        Js=Js,
-        states=states, fields=fields, r0=r0, r=r, v=v, d=d, d_nnz=d_nnz, λ=λ,
-        k=k,
-        E_re=E_re, E_im=E_im, 
-        E_k_re=E_k_re, E_k_im=E_k_im,
-        ds=ds, ds_state1=ds_state1, ds_state2=ds_state2,
-        extra_p=extra_p, mass = mass, update_H = update_H, populations = zeros(Float64, n_states),
-        n_scatters = 0,
-        save_counter=0,
-        n_states=length(states),
-        n_ground=length(states) - n_excited,
-        n_excited=n_excited,
-        trajectory=Vector{T}[],
-        decay_dist=decay_dist,
-        time_to_decay=rand(decay_dist)
-        )
-
-    return p
-end
-export schrodinger_stochastic_nocomplex
-
 function schrodinger_stochastic_nocomplex_v0(
     particle, states, fields, d, ψ₀, mass, n_excited;
     extra_p=nothing, λ=1.0, Γ=2π, update_H=update_H)
@@ -994,7 +1113,7 @@ export schrodinger_stochastic_nocomplex_v0
 
 function schrodinger_stochastic_repump(
     particle, states, fields, d, ψ₀, mass, n_excited;
-    extra_p=nothing, λ=1.0, Γ=2π, update_H=update_H, dark_lifetime=0.0, FC_mainline = 1.0)
+    sim_params=nothing, extra_data=nothing, λ=1.0, Γ=2π, update_H_and_∇H=update_H_and_∇H, dark_lifetime=0.0, FC_mainline=1.0)
     """
     dark_lifetime = time the molecule spends in a dark (to mainline laser) state
     FC_mainline = Frank-Condon factor of mainline transtion
@@ -1033,6 +1152,7 @@ function schrodinger_stochastic_repump(
     type_complex = ComplexF64
 
     H = StructArray( zeros(type_complex, n_states, n_states) )
+    H₀ = deepcopy(H)
     ∇H = SVector{3, ComplexF64}(0,0,0)
 
     ω = [s.E for s in states]
@@ -1077,16 +1197,16 @@ function schrodinger_stochastic_repump(
     E_k = [@SVector Complex{Float64}[0,0,0] for _ ∈ 1:3]
 
     decay_dist = Exponential(1)
-    dark_time_dist = Exponential(dark_lifetime * Γ)
+    dark_time_dist = Exponential(dark_lifetime)
 
     # NOTE: mass with correct unit = dimensionless mass here * hbar * k^2 / Γ
     p = MutableNamedTuple(
-        H=H, ∇H=∇H, ψ=ψ, dψ=dψ, ψ_soa=ψ_soa, dψ_soa=dψ_soa, ω=ω, eiωt=eiωt, Js=Js,
-        states=states, fields=fields, r0=r0, r=r, v=v, d=d, d_nnz=d_nnz, λ=λ,
-        k=k, 
+        H=H, H₀=H₀, ∇H=∇H, ψ=ψ, dψ=dψ, ψ_soa=ψ_soa, dψ_soa=dψ_soa, ω=ω, eiωt=eiωt, Js=Js,
+        states=states, fields=fields, r0=r0, r=r, v=v, d=d, d_nnz=d_nnz, 
+        λ=λ, k=k, Γ=Γ,
         E=E, E_k=E_k,
         ds=ds, ds_state1=ds_state1, ds_state2=ds_state2,
-        extra_p=extra_p, mass = mass, update_H_and_∇H=update_H_and_∇H, populations = zeros(Float64, n_states),
+        sim_params=sim_params, extra_data=extra_data, mass = mass, update_H_and_∇H=update_H_and_∇H, populations = zeros(Float64, n_states),
         n_scatters = 0,
         save_counter=0,
         n_states=length(states),
@@ -1104,69 +1224,71 @@ function schrodinger_stochastic_repump(
 
     return p
 end
+export schrodinger_stochastic_repump
 
-
-function ψ_stochastic_repump!(dψ, ψ, p, τ)
-      
-    if p.is_dark == false
-        ψ_stochastic!(dψ, ψ, p, τ)
-        return nothing
+function ψ_stochastic_repump!(dψ, ψ, p, t)
+    if ~p.is_dark
+        ψ_stochastic_potential!(dψ, ψ, p, t)
     else
-       @unpack ψ_soa, dψ_soa, r, H₀, ω, fields, H, E_k, ds, ds_state1, ds_state2, Js, eiωt, states, extra_p, mass = p
-        
-        n_states = length(states)
-        n_excited = p.n_excited
-
-        r = SVector(real(ψ[n_states + n_excited + 1]), real(ψ[n_states + n_excited + 2]), real(ψ[n_states + n_excited + 3]))
-        
-        for i ∈ 1:n_excited + n_states
+        for i ∈ 1:(p.n_states + p.n_excited)
             dψ[i] = 0.0
         end
-        # force = 0 if state is outside the cycling Hilbert space
-        for i ∈ 1:3
-            dψ[n_states + n_excited + i] = ψ[n_states + n_excited + i + 3] # update position
-            dψ[n_states + n_excited + 3 + i] = 0.0 # update velocity
+        for i ∈ (p.n_states + p.n_excited + 4):(p.n_states + p.n_excited + 6)
+            dψ[i] = 0.0
         end
-
-        # update force
-        ψ[(n_states + n_excited + 6 + 1):(n_states + n_excited + 6 + 3)] .= 0
-        dψ[(n_states + n_excited + 6 + 1):(n_states + n_excited + 6 + 3)] .= 0
-
-        return nothing 
     end
+    return nothing
 end
-export schrodinger_stochastic_repump;
-export ψ_stochastic_repump!;
+export ψ_stochastic_repump!
+
+# function ψ_stochastic_repump!(dψ, ψ, p, τ)
+      
+#     if p.is_dark == false
+#         ψ_stochastic_potential!(dψ, ψ, p, τ)
+#         return nothing
+#     else
+#        @unpack ψ_soa, dψ_soa, r, H₀, ω, fields, H, E_k, ds, ds_state1, ds_state2, Js, eiωt, states, extra_p, mass = p
+        
+#         # n_states = length(states)
+#         # n_excited = p.n_excited
+
+#         # r = SVector(real(ψ[n_states + n_excited + 1]), real(ψ[n_states + n_excited + 2]), real(ψ[n_states + n_excited + 3]))
+        
+#         # for i ∈ 1:(n_excited + n_states)
+#         #     dψ[i] = 0.0
+#         # end
+
+#         return nothing 
+#     end
+# end
 
 function SE_collapse_repump!(integrator)
-    # go back to bright state
-    if integrator.p.is_dark == true
+    # if the collapse condition has been satisfied and the molecule was in a dark state, move it back to a bright state (all states equally likely)
+    if integrator.p.is_dark
+
         integrator.p.is_dark = false
         n_states = length(integrator.p.states)
         n_excited = integrator.p.n_excited
+
+        # excite molecule to a random excited state
         i = Int(floor(rand()*n_excited)) + 1
-        for i in 1:n_states
+        for i ∈ 1:n_states
             integrator.u[i] = 0.0
         end
         integrator.u[n_states - n_excited + i] = 1.0
-#         println()
-#         println("Molecule out of jail.")
+
+        # decay back down to the ground state with a single photon recoil
+        SE_collapse_pol_always_repump!(integrator, false, 1)
+        
     else
-        # scatter
-        rn = rand()
-        if rn < integrator.p.FC_mainline # decay back to a cycling state
-            SE_collapse_pol_always!(integrator)
-        else # decay into a dark state and wait to be repumped
-            SE_collapse_pol_always!(integrator) # give a momentum kick
+        # scatter; add two photon scatters for diffusion from decay AND absorption
+        SE_collapse_pol_always_repump!(integrator, true, 2)
+
+        # decay to a dark state
+        if rand() > integrator.p.FC_mainline
             integrator.p.is_dark = true
             integrator.p.dark_time = rand(integrator.p.dark_time_dist)
             integrator.p.dark_time_t0 = integrator.t
-#             n_excited = integrator.p.n_excited
-#             n_states = length(integrator.p.states)
-
-#             @printf("Molecule put in jail at time %.1e", integrator.t / Γ)
-#             println()
-#             @printf("dark_time = %.1e", integrator.p.dark_time/Γ)
         end
     end
 end
@@ -1175,48 +1297,118 @@ export SE_collapse_repump!
 # Condition function used to determine when the particle decays
 function condition(u,t,integrator)
     p = integrator.p
+    k = 2π/p.λ
     integrated_excited_pop = 0.0
     for i ∈ 1:p.n_excited
         integrated_excited_pop += real(u[p.n_states+i])
     end
+    
     _condition = integrated_excited_pop - p.time_to_decay
     
-    # terminate if the particle is more than 20mm from the centre
-    # r = 0.0
-    # for i ∈ 1:3
-    #     r += norm(u[p.n_states + p.n_excited + i])^2
-    # end
-    # r = sqrt(r)
-    # if r >= 10e-3 * integrator.p.k
-    #    terminate!(integrator)
-    # end
-    
-    return _condition
-end
-
-function condition_repump(u,t,integrator)
-    p = integrator.p
-    integrated_excited_pop = 0.0
-    for i ∈ 1:p.n_excited
-        integrated_excited_pop += real(u[p.n_states+i])
-    end
-    _condition = 0.0
-    if integrator.p.is_dark == true
-        _condition = t-p.dark_time_t0 - p.dark_time
-    else
-        _condition = integrated_excited_pop - p.time_to_decay
-    end
-
-    # terminate if particle is too far from center
     r = 0.0
     for i ∈ 1:3
         r += norm(u[p.n_states + p.n_excited + i])^2
     end
     r = sqrt(r)
-    k = 1.0037037231916271e7
-    if r >= 10e-3*k
+    if r >= 2e-3*k # terminate if the particle is more than 2 mm from the centre
+       terminate!(integrator)
+    elseif integrator.p.n_scatters > integrator.p.sim_params.photon_budget # also terminate if too many photons have been scattered
+        terminate!(integrator)
+    end
+    return _condition
+end
+export condition
+
+function condition_simple(u,t,integrator)
+    p = integrator.p
+    k = 2π/p.λ
+    integrated_excited_pop = 0.0
+    for i ∈ 1:p.n_excited
+        integrated_excited_pop += real(u[p.n_states+i])
+    end
+    
+    _condition = integrated_excited_pop - p.time_to_decay
+    
+    r = 0.0
+    for i ∈ 1:3
+        r += norm(u[p.n_states + p.n_excited + i])^2
+    end
+    r = sqrt(r)
+    if r >= 3e-3*k # terminate if the particle is more than 3 mm from the centre
        terminate!(integrator)
     end
+    return _condition
+end
+export condition_simple
+
+function update_H_and_∇H(H, p, r, t)
+    k = 2π / p.λ
+    
+    # Define a ramping magnetic field
+    Zeeman_Hz = p.extra_data.Zeeman_Hz
+    Zeeman_Hx = p.extra_data.Zeeman_Hx
+    Zeeman_Hy = p.extra_data.Zeeman_Hy
+    
+    τ_bfield = p.sim_params.B_ramp_time 
+    scalar = t/τ_bfield
+    scalar = min(scalar, 1.0)
+    
+    gradient_x = -scalar * p.sim_params.B_gradient * 1e2 / k/2
+    gradient_y = +scalar * p.sim_params.B_gradient * 1e2 / k/2
+    gradient_z = -scalar * p.sim_params.B_gradient * 1e2 / k
+    
+    Bx = gradient_x * r[1] + p.sim_params.B_offset[1]
+    By = gradient_y * r[2] + p.sim_params.B_offset[2]
+    Bz = gradient_z * r[3] + p.sim_params.B_offset[3]
+    
+    @turbo for i in eachindex(H)
+        H.re[i] = Bz * Zeeman_Hz.re[i] + Bx * Zeeman_Hx.re[i] + By * Zeeman_Hy.re[i]
+        H.im[i] = Bz * Zeeman_Hz.im[i] + Bx * Zeeman_Hx.im[i] + By * Zeeman_Hy.im[i]
+    end
+    
+    # # Update the Hamiltonian for the molecule-ODT interaction
+    # H_ODT = p.extra_data.H_ODT_static
+    
+    # ODT_size = p.sim_params.ODT_size .* p.k
+    # update_ODT_center!(p, t)
+    # ODT_x = p.extra_data.ODT_position[1] * p.k
+    # ODT_z = p.extra_data.ODT_position[2] * p.k
+    
+    # scalar_ODT = exp(-2(r[1]-ODT_x)^2/ODT_size[1]^2) * exp(-2r[2]^2/ODT_size[2]^2) * exp(-2(r[3]-ODT_z)^2/ODT_size[3]^2)
+    
+    # @turbo for i in eachindex(H)
+    #     H.re[i] += H_ODT.re[i] * scalar_ODT
+    #     H.im[i] += H_ODT.im[i] * scalar_ODT
+    # end
+    
+    return SVector{3,ComplexF64}(0,0,0)
+    # return SVector{3,ComplexF64}((-4(r[1]-ODT_x) / ODT_size[1]^2) * scalar_ODT, (-4r[2] / ODT_size[2]^2) * scalar_ODT, (-4(r[3]-ODT_z) / ODT_size[3]^2) * scalar_ODT)
+    
+end
+
+
+function condition_repump(u, t, integrator)
+    p = integrator.p
+    _condition = 0.0
+    if integrator.p.is_dark
+        _condition += (t - p.dark_time_t0) - p.dark_time
+    else
+        integrated_excited_pop = 0.0
+        @inbounds @fastmath for i ∈ 1:p.n_excited
+            integrated_excited_pop += real(u[p.n_states+i])
+        end
+        _condition += integrated_excited_pop - p.time_to_decay
+    end
+
+    # terminate if particle is too far from center
+    # r = 0.0
+    # for i ∈ 1:3
+    #     r += norm(u[p.n_states + p.n_excited + i])^2
+    # end
+    # r = sqrt(r)
+    # if r >= 2e-3 * integrator.p.k
+    #    terminate!(integrator)
+    # end
 
     return _condition
 end
@@ -1268,13 +1460,151 @@ function ψ_stochastic_potential!(dψ, ψ, p, t)
     g = -9.81 / (Γ^2/k)
     f += SVector{3,Float64}(0,mass*g,0)
 
-    # excited_state_pop = 0.0
+    # accumulate excited state populations
+    for i ∈ 1:n_excited
+        dψ[n_states + i] = norm(ψ[n_states - n_excited + i])^2
+    end
+    
+    for i ∈ 1:3
+        dψ[n_states + n_excited + i] = ψ[n_states + n_excited + i + 3] # update position
+        dψ[n_states + n_excited + 3 + i] = f[i] / mass # update velocity
+    end
+
+    # update force
+    # ψ[(n_states + n_excited + 6 + 1):(n_states + n_excited + 6 + 3)] .= f/ψ_norm
+    # dψ[(n_states + n_excited + 6 + 1):(n_states + n_excited + 6 + 3)] .= 0
+
+    # diffusion
+#     dt = 1e-2
+
+#     diffusion_direction = 1.0
+#     if rand() < 0.5
+#         diffusion_direction= -1
+#     end
+#     dψ[n_states + n_excited + 4] += p.diffusion_constant * diffusion_direction / (p.mass * sqrt(dt))
+    
+#     diffusion_direction = 1.0
+#     if rand() < 0.5
+#         diffusion_direction= -1
+#     end
+#     dψ[n_states + n_excited + 5] += p.diffusion_constant * diffusion_direction / (p.mass * sqrt(dt))
+    
+#     diffusion_direction = 1.0
+#     if rand() < 0.5
+#         diffusion_direction= -1
+#     end
+#     dψ[n_states + n_excited + 6] += p.diffusion_constant * diffusion_direction / (p.mass * sqrt(dt))
+
+    return nothing
+end
+export ψ_stochastic_potential!
+
+function ψ_stochastic_potential_v2!(dψ, ψ, p, t)
+    # (1) transforms ψ rather than H 
+
+    @unpack ψ_soa, dψ_soa, r, ω, fields, H, H₀, ∇H, E_k, ds, ds_state1, ds_state2, Js, eiωt, states, extra_data, mass, k, Γ = p
+    
+    n_states = length(states)
+    n_excited = p.n_excited
+    
+    r = SVector(real(ψ[n_states + n_excited + 1]), real(ψ[n_states + n_excited + 2]), real(ψ[n_states + n_excited + 3]))
+
+    ψ_norm = 0.0
+    for i ∈ 1:n_states
+        ψ_norm += norm(ψ[i])^2
+    end
+    ψ_norm = sqrt(ψ_norm)
+    for i ∈ 1:n_states
+        ψ[i] /= ψ_norm
+    end
+    
+    update_eiωt!(eiωt, ω, t)
+    base_to_soa!(ψ, ψ_soa)
+    Heisenberg_turbo_state!(ψ_soa, eiωt, -1)
+
+    update_H!(p, t, r, fields, H, E_k, ds, ds_state1, ds_state2, Js) # molecule-light Hamiltonian in schrodinger picutre
+    ∇H = p.update_H_and_∇H(H₀, p, r, t) # Zeeman and ODT hamiltonian in schrodinger picutre
+
+    @turbo for i ∈ eachindex(H)
+        H.re[i] += H₀.re[i]
+        H.im[i] += H₀.im[i]
+    end
+    
+    mul_by_im_minus!(ψ_soa)
+    mul_turbo!(dψ_soa, H, ψ_soa)
+    
+    Heisenberg_turbo_state!(dψ_soa, eiωt)
+    soa_to_base!(dψ, dψ_soa)
+
+    # force calculations
+    f = 0*force_stochastic_v2(E_k, ds, ds_state1, ds_state2, ψ_soa, eiωt) # force due to lasers
+
+    H₀_expectation = operator_matrix_expectation(H₀, ψ_soa)
+    f += ∇H .* (-H₀_expectation) # force due to conservative potential
+
+    # add gravity to the force
+    # g = -9.81 / (Γ^2/k)
+    # f += SVector{3,Float64}(0,mass*g,0)
+
+    # # accumulate excited state populations
     # for i ∈ 1:n_excited
-    #     excited_state_pop += norm(ψ[n_states + i])
+    #     dψ[n_states + i] = norm(ψ[n_states - n_excited + i])^2
     # end
-    # repumper_scattering_rate = excited_state_pop / 100
-    # ħ = 6.62607015e-34 / 2π
-    # f += SVector{3,Float64}(0, 0, (ħ / (Γ/k^2)) * repumper_scattering_rate)
+    
+    for i ∈ 1:3
+        dψ[n_states + n_excited + i] = ψ[n_states + n_excited + i + 3] # update position
+        dψ[n_states + n_excited + 3 + i] = f[i]/mass # update velocity
+    end
+    
+    return nothing
+end
+export ψ_stochastic_potential_v2!
+
+function ψ_stochastic_oop!(ψ, p, t)
+    @unpack dψ, ψ_soa, dψ_soa, r, ω, fields, H, H₀, ∇H, E_k, ds, ds_state1, ds_state2, Js, eiωt, states, extra_data, mass, k, Γ = p
+    
+    n_states = length(states)
+    n_excited = p.n_excited
+    
+    r = SVector(real(ψ[n_states + n_excited + 1]), real(ψ[n_states + n_excited + 2]), real(ψ[n_states + n_excited + 3]))
+
+    ψ_norm = 0.0
+    for i ∈ 1:n_states
+        ψ_norm += norm(ψ[i])^2
+    end
+    ψ_norm = sqrt(ψ_norm)
+    for i ∈ 1:n_states
+        ψ[i] /= ψ_norm
+    end
+    
+    base_to_soa!(ψ, ψ_soa)
+    
+    update_H!(p, t, r, fields, H, E_k, ds, ds_state1, ds_state2, Js) # molecule-light Hamiltonian in schrodinger picutre
+    
+    update_eiωt!(eiωt, ω, t)
+    Heisenberg!(H, eiωt)  # molecule-light Hamiltonian in interation picture
+    
+    ∇H = p.update_H_and_∇H(H₀, p, r, t) # Zeeman and ODT hamiltonian in schrodinger picutre
+    Heisenberg!(H₀, eiωt) # Zeeman and ODT Hamiltonian in interaction picture
+    
+    @turbo for i ∈ eachindex(H)
+        H.re[i] += H₀.re[i]
+        H.im[i] += H₀.im[i]
+    end
+    
+    mul_by_im_minus!(ψ_soa)
+    mul_turbo!(dψ_soa, H, ψ_soa)
+    
+    soa_to_base!(dψ, dψ_soa)
+    
+    f = force_stochastic(E_k, ds, ds_state1, ds_state2, ψ_soa, eiωt) # force due to lasers
+
+    H₀_expectation = operator_matrix_expectation(H₀, ψ_soa)
+    f += ∇H .* (-H₀_expectation) # force due to conservative potential
+
+    # add gravity to the force
+    g = -9.81 / (Γ^2/k)
+    f += SVector{3,Float64}(0,mass*g,0)
 
     # accumulate excited state populations
     for i ∈ 1:n_excited
@@ -1286,29 +1616,40 @@ function ψ_stochastic_potential!(dψ, ψ, p, t)
         dψ[n_states + n_excited + 3 + i] = f[i]/mass # update velocity
     end
 
-    # update force
-    # ψ[(n_states + n_excited + 6 + 1):(n_states + n_excited + 6 + 3)] .= f/ψ_norm
-    # dψ[(n_states + n_excited + 6 + 1):(n_states + n_excited + 6 + 3)] .= 0
-    
-    return nothing
+    return SVector{length(dψ), ComplexF64}(dψ)
 end
-export ψ_stochastic_potential!
+export ψ_stochastic_oop!
 
 """ 
     Compute the expectation value ⟨ψ|O|ψ⟩ for an operator O and a state vector |ψ⟩. This function assumes that O is real.
 """
 function operator_matrix_expectation(O_Heisenberg, state)
     O_exp = zero(Float64)
-    
     @turbo for i ∈ eachindex(state)
+        state_i_re = state.re[i]
+        state_i_im = state.im[i]
         for j ∈ eachindex(state)
             # second term in addition below is the imaginary part, which has a positive sign because we take the conjugate of state
-            O_exp += O_Heisenberg.re[i,j] * (state.re[i] * state.re[j] + state.im[i] * state.im[j])
+            O_exp += O_Heisenberg.re[i,j] * (state_i_re * state.re[j] + state_i_im * state.im[j])
         end
     end
-    
     return O_exp
 end
+export operator_matrix_expectation
+
+function operator_matrix_expectation_column(O_Heisenberg, state)
+    O_exp = zero(Float64)
+    @turbo for j ∈ eachindex(state)
+        state_j_re = state.re[j]
+        state_j_im = state.im[j]
+        for i ∈ eachindex(state)
+            # second term in addition below is the imaginary part, which has a positive sign because we take the conjugate of state
+            O_exp += O_Heisenberg.re[i,j] * (state_j_re * state.re[i] + state_j_im * state.im[i])
+        end
+    end
+    return O_exp
+end
+export operator_matrix_expectation_column
 
 function extend_operator(operator::T, state, state′, args...) where {T}
     val = zero(ComplexF64)

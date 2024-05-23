@@ -1,0 +1,22 @@
+--------------------------------------------------
+test 8 information 
+--------------------------------------------------
+propagation time = 20.00 ms 
+particle number = 1000 
+--------------------------------------------------
+Laser parameters:
+Polarizations (+x beam): +, -, -, + 
+Polarization imbalance: 0.000 
+Detunings (MHz): 7.60, 0.00, 5.09, 6.84 
+Saturations: 2.97, 0.00, 1.04, 0.00 
+Power imbalance (x, y, z): 0.000, 0.000, -0.000 
+--------------------------------------------------
+max B field gradient: (37.50, -37.50, 75.00) G/cm 
+B field ramp time: 0.0 ms 
+--------------------------------------------------
+Initial state: 
+Cloud radius = 0.11 mm 
+Cloud temperature = 0.10 mK 
+Displacement from centre = (0.00, 0.00, 0.00) mm 
+Centre of mass velocity = (0.00, 0.00, 0.00) m/s 
+--------------------------------------------------

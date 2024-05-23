@@ -61,7 +61,7 @@ function define_CaOH_states()
     evaluate!(A_state_ham)
     QuantumStates.solve!(A_state_ham)
 
-    A_state_J12_pos_parity_states = [A_state_ham.states[5:8];A_state_ham.states[9:16]] # J=1/2 and J=3/2
+    A_state_J12_pos_parity_states = [A_state_ham.states[5:8]; A_state_ham.states[9:16]] # J=1/2 and J=3/2
 
     QN_bounds = (
         S = 1/2, 
@@ -81,6 +81,11 @@ function define_CaOH_states()
         state.E *= 1e6
     end
     
-    return ground_states, excited_states
+    # create total matrix
+    ham_matrix = zeros(ComplexF64,16,16)
+    ham_matrix[1:12,1:12] .= X_state_ham.matrix[5:16,5:16]
+    ham_matrix[13:16,13:16] .= A_state_ham.matrix[5:8,5:8]
+    
+    return ground_states, excited_states, ham_matrix
     
 end

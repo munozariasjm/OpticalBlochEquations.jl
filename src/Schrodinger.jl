@@ -1,8 +1,8 @@
 """
 Instantiate parameters to solve Schrödinger's equation.
 """
-function schrödinger(particle, states, H₀, fields, d, d_mag, ψ, should_round_freqs, update_H; 
-    extra_p=nothing, λ=1.0, freq_res=1e-2)
+function schrödinger(particle, states, H₀, fields, d, d_mag, ψ, should_round_freqs; 
+    extra_p=nothing, Γ=2π, λ=1.0, freq_res=1e-2)
 
     period = 2π / freq_res
 
@@ -21,6 +21,11 @@ function schrödinger(particle, states, H₀, fields, d, d_mag, ψ, should_roun
     # Convert to angular frequencies
     for i ∈ eachindex(states)
         states.E[i] *= 2π
+        states.E[i] /= Γ
+    end
+
+    for i ∈ eachindex(fields)
+        fields.ω[i] /= Γ
     end
 
     if should_round_freqs
@@ -74,10 +79,16 @@ function schrödinger(particle, states, H₀, fields, d, d_mag, ψ, should_roun
         period=period, k=k, freq_res=freq_res, H₀=H₀, 
         E=E, E_k=E_k,
         ds=ds, ds_state1=ds_state1, ds_state2=ds_state2,
-        update_H=update_H,
         extra_p=extra_p)
 
-    return (dψ, ψ, p)
+    return p
+end
+
+function add_to_H!(H, H₀)
+    @turbo for i ∈ eachindex(H)
+        H[i] += H₀[i]
+    end
+    return nothing
 end
 
 function ψ!(dψ, ψ, p, τ)
@@ -86,16 +97,17 @@ function ψ!(dψ, ψ, p, τ)
 
     base_to_soa!(ψ, ψ_soa)
     
-    update_H!(p, τ, r, H₀, fields, H, E_k, ds, ds_state1, ds_state2, Js)
+    update_H!(p, τ, r, fields, H, E_k, ds, ds_state1, ds_state2, Js)
+
+    # add_to_H!(H, H₀)
     
     update_eiωt!(eiωt, ω, τ)
-    Heisenberg!(H, eiωt, -1)
-    # Heisenberg_ψ!(p.ψ_soa, eiωt, -1)
+    Heisenberg_ψ!(p.ψ_soa, eiωt, -1)
 
     mul_by_im_minus!(ψ_soa)
     mul_turbo!(dψ_soa, H, ψ_soa)
     
-    # Heisenberg_ψ!(p.dψ_soa, eiωt, -1)
+    Heisenberg_ψ!(p.dψ_soa, eiωt, +1)
     soa_to_base!(dψ, dψ_soa)
 
     return nothing

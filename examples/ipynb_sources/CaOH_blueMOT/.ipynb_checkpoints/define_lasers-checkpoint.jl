@@ -10,9 +10,9 @@ function flip(ϵ)
 end
 
 function gaussian_intensity_along_axes(r, axes, centers)
-    """1/e^2 width = 5mm Gaussian beam """
+    """1/e^2 width = 4 mm Gaussian beam """
     d2 = (r[axes[1]] - centers[1])^2 + (r[axes[2]] - centers[2])^2   
-    return exp(-2*d2/(5e-3/(1/k))^2)
+    return exp(-2*d2/(4e-3/(1/k))^2)
 end
 
 # function define_lasers(states,
@@ -142,7 +142,7 @@ function define_lasers(
     ω1 = 2π * (energy(states[end]) - energy(states[1])) + Δ1 * 1e6 * 2π 
     ω2 = 2π * (energy(states[end]) - energy(states[8])) + Δ2 * 1e6 * 2π
     ω3 = 2π * (energy(states[end]) - energy(states[8])) + Δ3 * 1e6 * 2π
-    ω4 = 2π * (energy(states[end]) - energy(states[8])) + Δ4 * 1e6 * 2π
+    ω4 = 2π * (energy(states[end]) - energy(states[1])) + Δ4 * 1e6 * 2π
     
     x_center_y = rand() * off_center[1] * k
     x_center_z = rand() * off_center[2] * k
@@ -152,6 +152,8 @@ function define_lasers(
     z_center_y = rand() * off_center[6] * k
     
     ϵ_(ϵ, f) = t -> ϵ
+    # ϵ_(ϵ, f) = t -> ϵ .* exp(-im * rand(Normal(0, 1e6 * 2π / Γ)) * t)
+    # ϵ_(ϵ, f) = t -> ϵ .* exp(-im * (2π * 2e6 / Γ) * sin((2π * 100e3 / Γ) * t))
     s_func(s) = (x,t) -> s
     s_gaussian(s, axes, centers) = (r,t) -> s * gaussian_intensity_along_axes(r, axes, centers)
     
@@ -164,7 +166,7 @@ function define_lasers(
     rand3 = rand()
     pol3_x = pol3_x.*sqrt(1 - rand3*pol_imbalance) + flip(pol3_x).*sqrt(rand3*pol_imbalance)
     rand4 = rand()
-    pol4_x = pol3_x.*sqrt(1 - rand4*pol_imbalance) + flip(pol4_x).*sqrt(rand4*pol_imbalance)
+    pol4_x = pol4_x.*sqrt(1 - rand4*pol_imbalance) + flip(pol4_x).*sqrt(rand4*pol_imbalance)
     rand4 = rand()
     
     sx_rand = 1/2-rand()

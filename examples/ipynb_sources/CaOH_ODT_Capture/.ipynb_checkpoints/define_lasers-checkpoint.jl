@@ -47,9 +47,11 @@ function define_lasers(states,
     
     ϵ_(ϵ, f) = t -> ϵ
     s_func(s) = (x,t) -> s
-    s_gaussian(s, axes, centers) = (r,t) -> s * gaussian_intensity_along_axes(r, axes, centers)
+    s_gaussian(s, axes, centers) = (r,t) -> s #* gaussian_intensity_along_axes(r, axes, centers)
     
-    s_gaussian_ramp(s, factor, ramp_time, axes, centers) = (r,t) -> ((s*factor-s)/ramp_time * min(t, ramp_time) + s) * gaussian_intensity_along_axes(r, axes, centers)
+    # s_gaussian_ramp(s, factor, ramp_time, axes, centers) = (r,t) -> (t < 110e-3 / (1/Γ)) ? ((s*factor-s)/ramp_time * min(t, ramp_time) + s) * gaussian_intensity_along_axes(r, axes, centers) : 0.0
+    
+    s_func(s, factor, ramp_time, axes, centers) = (r,t) -> s
     
     rand1 = rand()
     pol1_x = pol1_x.*sqrt(1 - rand1*pol_imbalance) + flip(pol1_x).*sqrt(rand1*pol_imbalance)
@@ -73,27 +75,27 @@ function define_lasers(states,
     s1x = s1 * (1+s_imbalance[1]*sx_rand)
     s1y = s1 * (1+s_imbalance[2]*sy_rand)
     s1z = s1 * (1+s_imbalance[3]*sz_rand)
-    k̂ = kx; ϵ1 = ϕs[1]*rotate_pol(pol1_x, k̂); ϵ_func1 = ϵ_(ϵ1, 1); laser1 = Field(k̂, ϵ_func1, ω1,  s_gaussian_ramp(s1x, s_ramp_to, s_ramp_time, (2,3), (x_center_y, x_center_z)))
-    k̂ = -kx; ϵ2 = ϕs[2]*rotate_pol(pol1_x, k̂); ϵ_func2 = ϵ_(ϵ2, 2); laser2 = Field(k̂, ϵ_func2, ω1, s_gaussian_ramp(s1x*(1-retro_loss), s_ramp_to, s_ramp_time,  (2,3), (x_center_y, x_center_z)))
-    k̂ = ky; ϵ3 = ϕs[3]*rotate_pol(pol1_x, k̂); ϵ_func3 = ϵ_(ϵ3, 3); laser3 = Field(k̂, ϵ_func3, ω1,  s_gaussian_ramp(s1y, s_ramp_to, s_ramp_time,  (1,3), (y_center_x, y_center_z)))
-    k̂ = -ky; ϵ4 = ϕs[4]*rotate_pol(pol1_x, k̂); ϵ_func4 = ϵ_(ϵ4, 4); laser4 = Field(k̂, ϵ_func4, ω1,  s_gaussian_ramp(s1y*(1-retro_loss), s_ramp_to, s_ramp_time,  (1,3), (y_center_x, y_center_z)))
-    k̂ = +kz; ϵ5 = ϕs[5]*rotate_pol(flip(pol1_x), k̂); ϵ_func5 = ϵ_(ϵ5, 5); laser5 = Field(k̂, ϵ_func5, ω1,  s_gaussian_ramp(s1z, s_ramp_to, s_ramp_time,  (1,2), (z_center_x, z_center_y)))
-    k̂ = -kz; ϵ6 = ϕs[6]*rotate_pol(flip(pol1_x), k̂); ϵ_func6 = ϵ_(ϵ6, 6); laser6 = Field(k̂, ϵ_func6, ω1, s_gaussian_ramp(s1z*(1-retro_loss), s_ramp_to, s_ramp_time,  (1,2), (z_center_x, z_center_y)))
+    k̂ = kx; ϵ1 = ϕs[1]*rotate_pol(pol1_x, k̂); ϵ_func1 = ϵ_(ϵ1, 1); laser1 = Field(k̂, ϵ_func1, ω1, s_func(s1x, s_ramp_to, s_ramp_time, (2,3), (x_center_y, x_center_z)))
+    k̂ = -kx; ϵ2 = ϕs[2]*rotate_pol(pol1_x, k̂); ϵ_func2 = ϵ_(ϵ2, 2); laser2 = Field(k̂, ϵ_func2, ω1, s_func(s1x*(1-retro_loss), s_ramp_to, s_ramp_time,  (2,3), (x_center_y, x_center_z)))
+    k̂ = ky; ϵ3 = ϕs[3]*rotate_pol(pol1_x, k̂); ϵ_func3 = ϵ_(ϵ3, 3); laser3 = Field(k̂, ϵ_func3, ω1, s_func(s1y, s_ramp_to, s_ramp_time,  (1,3), (y_center_x, y_center_z)))
+    k̂ = -ky; ϵ4 = ϕs[4]*rotate_pol(pol1_x, k̂); ϵ_func4 = ϵ_(ϵ4, 4); laser4 = Field(k̂, ϵ_func4, ω1, s_func(s1y*(1-retro_loss), s_ramp_to, s_ramp_time,  (1,3), (y_center_x, y_center_z)))
+    k̂ = +kz; ϵ5 = ϕs[5]*rotate_pol(flip(pol1_x), k̂); ϵ_func5 = ϵ_(ϵ5, 5); laser5 = Field(k̂, ϵ_func5, ω1, s_func(s1z, s_ramp_to, s_ramp_time,  (1,2), (z_center_x, z_center_y)))
+    k̂ = -kz; ϵ6 = ϕs[6]*rotate_pol(flip(pol1_x), k̂); ϵ_func6 = ϵ_(ϵ6, 6); laser6 = Field(k̂, ϵ_func6, ω1, s_func(s1z*(1-retro_loss), s_ramp_to, s_ramp_time,  (1,2), (z_center_x, z_center_y)))
 
     lasers_1 = [laser1, laser2, laser3, laser4, laser5, laser6]
 
     s2x = s2 * (1+s_imbalance[1]*sx_rand)
     s2y = s2 * (1+s_imbalance[2]*sy_rand)
     s2z = s2 * (1+s_imbalance[3]*sz_rand)
-    k̂ = +kx; ϵ7 = ϕs[1]*rotate_pol(pol2_x, k̂); ϵ_func7 = ϵ_(ϵ7, 1); laser7 = Field(k̂, ϵ_func7, ω2, s_gaussian_ramp(s2x, s_ramp_to, s_ramp_time, (2,3), (x_center_y, x_center_z)))
-    k̂ = -kx; ϵ8 = ϕs[2]*rotate_pol(pol2_x, k̂); ϵ_func8 = ϵ_(ϵ8, 2); laser8 = Field(k̂, ϵ_func8, ω2, s_gaussian_ramp(s2x*(1-retro_loss), s_ramp_to, s_ramp_time, (2,3), (x_center_y, x_center_z)))
-    k̂ = +ky; ϵ9 = ϕs[3]*rotate_pol(pol2_x, k̂); ϵ_func9 = ϵ_(ϵ9, 3); laser9 = Field(k̂, ϵ_func9, ω2, s_gaussian_ramp(s2y, s_ramp_to, s_ramp_time,  (1,3), (y_center_x, y_center_z)))
-    k̂ = -ky; ϵ10 = ϕs[4]*rotate_pol(pol2_x, k̂); ϵ_func10 = ϵ_(ϵ10, 4); laser10 = Field(k̂, ϵ_func10, ω2, s_gaussian_ramp(s2y*(1-retro_loss), s_ramp_to, s_ramp_time,  (1,3), (y_center_x, y_center_z)))
-    k̂ = +kz; ϵ11 = ϕs[5]*rotate_pol(flip(pol2_x), k̂); ϵ_func11 = ϵ_(ϵ11, 5); laser11 = Field(k̂, ϵ_func11, ω2, s_gaussian_ramp(s2z, s_ramp_to, s_ramp_time,  (1,2), (z_center_x, z_center_y)))
-    k̂ = -kz; ϵ12 = ϕs[6]*rotate_pol(flip(pol2_x), k̂); ϵ_func12 = ϵ_(ϵ12, 6); laser12 = Field(k̂, ϵ_func12, ω2, s_gaussian_ramp(s2z*(1-retro_loss), s_ramp_to, s_ramp_time,  (1,2), (z_center_x, z_center_y)))
+    k̂ = +kx; ϵ7 = ϕs[1]*rotate_pol(pol2_x, k̂); ϵ_func7 = ϵ_(ϵ7, 1); laser7 = Field(k̂, ϵ_func7, ω2, s_func(s2x, s_ramp_to, s_ramp_time, (2,3), (x_center_y, x_center_z)))
+    k̂ = -kx; ϵ8 = ϕs[2]*rotate_pol(pol2_x, k̂); ϵ_func8 = ϵ_(ϵ8, 2); laser8 = Field(k̂, ϵ_func8, ω2, s_func(s2x*(1-retro_loss), s_ramp_to, s_ramp_time, (2,3), (x_center_y, x_center_z)))
+    k̂ = +ky; ϵ9 = ϕs[3]*rotate_pol(pol2_x, k̂); ϵ_func9 = ϵ_(ϵ9, 3); laser9 = Field(k̂, ϵ_func9, ω2, s_func(s2y, s_ramp_to, s_ramp_time,  (1,3), (y_center_x, y_center_z)))
+    k̂ = -ky; ϵ10 = ϕs[4]*rotate_pol(pol2_x, k̂); ϵ_func10 = ϵ_(ϵ10, 4); laser10 = Field(k̂, ϵ_func10, ω2, s_func(s2y*(1-retro_loss), s_ramp_to, s_ramp_time,  (1,3), (y_center_x, y_center_z)))
+    k̂ = +kz; ϵ11 = ϕs[5]*rotate_pol(flip(pol2_x), k̂); ϵ_func11 = ϵ_(ϵ11, 5); laser11 = Field(k̂, ϵ_func11, ω2, s_func(s2z, s_ramp_to, s_ramp_time,  (1,2), (z_center_x, z_center_y)))
+    k̂ = -kz; ϵ12 = ϕs[6]*rotate_pol(flip(pol2_x), k̂); ϵ_func12 = ϵ_(ϵ12, 6); laser12 = Field(k̂, ϵ_func12, ω2, s_func(s2z*(1-retro_loss), s_ramp_to, s_ramp_time,  (1,2), (z_center_x, z_center_y)))
 
     lasers_2 = [laser7, laser8, laser9, laser10, laser11, laser12]
 
-    lasers = [lasers_1; lasers_2]
+    lasers = lasers_1 # [lasers_1; lasers_2]
 
 end

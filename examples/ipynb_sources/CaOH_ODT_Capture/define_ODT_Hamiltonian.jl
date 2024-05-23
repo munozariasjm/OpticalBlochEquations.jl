@@ -24,10 +24,10 @@ ODT_as = as
 
 func_t_to_τ(t, τs, as) = τs[searchsortedfirst(as, t)]
 
-function update_ODT_center!(p, extra_data, t1)
+@inline function update_ODT_center_spiral!(p, extra_data, t1)
     if t1 >= p.ODT_motion_t_start*Γ
         t = min(t1 - p.ODT_motion_t_start*Γ, p.ODT_motion_t_stop*Γ - p.ODT_motion_t_start*Γ)
-        τ = func_t_to_τ(t*(1/Γ), extra_data.ODT_τs, extra_data.ODT_as)
+        τ = func_t_to_τ(t/Γ, extra_data.ODT_τs, extra_data.ODT_as)
         p.ODT_position[1] = p.ODT_rmax * τ * cos(2π*τ*p.ODT_revs)
         p.ODT_position[2] = p.ODT_rmax * τ * sin(2π*τ*p.ODT_revs)
     end
@@ -35,12 +35,11 @@ function update_ODT_center!(p, extra_data, t1)
 end
 
 function update_ODT_center_circle!(p, extra_data, t1)
-    if t1 >= p.ODT_motion_t_start*Γ
-        t = min(t1 - p.ODT_motion_t_start*Γ, p.ODT_motion_t_stop*Γ - p.ODT_motion_t_start*Γ)
-        τ = t * (1/Γ)
-        p.ODT_position[1] = p.ODT_rmax * cos(2π*τ*p.ODT_revs/p.ODT_motion_t_stop)
-        p.ODT_position[2] = p.ODT_rmax * sin(2π*τ*p.ODT_revs/p.ODT_motion_t_stop)
-    end
+    # if t1 >= p.ODT_motion_t_start*Γ
+        # t = min(t1 - p.ODT_motion_t_start*Γ, p.ODT_motion_t_stop*Γ - p.ODT_motion_t_start*Γ)
+    τ = t1 * (1/Γ)
+    p.ODT_position[1] = p.ODT_rmax * cos(2π*τ*p.ODT_revs/p.ODT_motion_t_stop)
+    p.ODT_position[2] = p.ODT_rmax * sin(2π*τ*p.ODT_revs/p.ODT_motion_t_stop)
     return nothing
 end
 

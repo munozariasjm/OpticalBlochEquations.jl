@@ -143,7 +143,7 @@ function define_lasers(
     ω1 = 2π * (energy(states[end]) - energy(states[1])) + Δ1 * 1e6 * 2π 
     ω2 = 2π * (energy(states[end]) - energy(states[8])) + Δ2 * 1e6 * 2π
     ω3 = 2π * (energy(states[end]) - energy(states[8])) + Δ3 * 1e6 * 2π
-    ω4 = 2π * (energy(states[end]) - energy(states[8])) + Δ4 * 1e6 * 2π
+    ω4 = 2π * (energy(states[end]) - energy(states[1])) + Δ4 * 1e6 * 2π
     
     x_center_y = rand() * off_center[1] * k
     x_center_z = rand() * off_center[2] * k
@@ -192,7 +192,9 @@ function define_lasers(
     k̂ = -kz; ϵ6 = ϕs[6]*rotate_pol(flip(pol1_x), k̂); ϵ_func6 = ϵ_(ϵ6, 6); laser6 = Field(k̂, ϵ_func6, ω1, s_gaussian_ramp(s1z*(1-retro_loss), s_ramp_to, s_ramp_time,  (1,2), (z_center_x, z_center_y)))
 
     lasers_1 = [laser1, laser2, laser3, laser4, laser5, laser6]
-
+    # lasers_1 = [laser2, laser4]
+    # lasers_1 = [laser1, laser2, laser3, laser4]
+    
     s2x = s2 * (1+s_imbalance[1]*sx_rand)
     s2y = s2 * (1+s_imbalance[2]*sy_rand)
     s2z = s2 * (1+s_imbalance[3]*sz_rand)
@@ -204,6 +206,8 @@ function define_lasers(
     k̂ = -kz; ϵ12 = ϕs[6]*rotate_pol(flip(pol2_x), k̂); ϵ_func12 = ϵ_(ϵ12, 6); laser12 = Field(k̂, ϵ_func12, ω2, s_gaussian_ramp(s2z*(1-retro_loss), s_ramp_to, s_ramp_time,  (1,2), (z_center_x, z_center_y)))
 
     lasers_2 = [laser7, laser8, laser9, laser10, laser11, laser12]
+    # lasers_2 = [laser8, laser10]
+    # lasers_2 = [laser7, laser8, laser9, laser10]
 
     s3x = s3 * (1+s_imbalance[1]*sx_rand)
     s3y = s3 * (1+s_imbalance[2]*sy_rand)
@@ -216,7 +220,9 @@ function define_lasers(
     k̂ = -kz; ϵ18 = ϕs[6]*rotate_pol(flip(pol3_x), k̂); ϵ_func18 = ϵ_(ϵ18, 6); laser18 = Field(k̂, ϵ_func18, ω3, s_gaussian_ramp(s3z*(1-retro_loss), s_ramp_to, s_ramp_time,  (1,2), (z_center_x, z_center_y)))
 
     lasers_3 = [laser13, laser14, laser15, laser16, laser17, laser18]
-
+    # lasers_3 = [laser14, laser16]
+    # lasers_3 = [laser13, laser14, laser15, laser16]
+    
     s4x = s4 * (1+s_imbalance[1]*sx_rand)
     s4y = s4 * (1+s_imbalance[2]*sy_rand)
     s4z = s4 * (1+s_imbalance[3]*sz_rand)
@@ -228,6 +234,8 @@ function define_lasers(
     k̂ = -kz; ϵ24 = ϕs[6]*rotate_pol(flip(pol4_x), k̂); ϵ_func24 = ϵ_(ϵ24, 6); laser24 = Field(k̂, ϵ_func24, ω4, s_gaussian_ramp(s4z*(1-retro_loss), s_ramp_to, s_ramp_time,  (1,2), (z_center_x, z_center_y)))
     
     lasers_4 = [laser19, laser20, laser21, laser22, laser23, laser24]
+    # lasers_4 = [laser20, laser22]
+    # lasers_4 = [laser19, laser20, laser21, laser22]
     
     lasers = [lasers_1; lasers_2; lasers_3; lasers_4]
 

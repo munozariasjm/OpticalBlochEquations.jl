@@ -3,6 +3,25 @@ import ProgressMeter: Progress, next!
 import Parameters: @unpack
 import Statistics: mean, std
 
+function H_exp(ρ_soa, H)
+    H_exp = zero(ComplexF64)
+    for m ∈ axes(H, 1)
+        for n ∈ axes(H, 2)
+            ρ_re = ρ_soa.re[n,m] # transpose
+            ρ_im = ρ_soa.im[n,m] # transpose
+            H_re = H.re[m,n]
+            H_im = H.im[m,n]
+            a1 = H_re * ρ_re - H_im * ρ_im
+            a2 = H_re * ρ_im + H_im * ρ_re
+            H_exp += a1 + im * a2
+            # H_exp += conj(H_exp)
+        end
+    end
+    return H_exp
+    # return tr(ρ_soa * H)
+end
+export H_exp
+
 function force_noupdate(E_k, ds, ds_state1, ds_state2, ρ_soa)
     F = SVector(0.0, 0.0, 0.0)
 
@@ -29,52 +48,12 @@ function force_noupdate(E_k, ds, ds_state1, ds_state2, ρ_soa)
                 a1 = d_re * ρ_re - d_im * ρ_im
                 a2 = d_re * ρ_im + d_im * ρ_re
                 F_k_re += E_kq_re * a1 - E_kq_im * a2
-                F_k_im += E_kq_im * a1 + E_kq_re * a2
-                # m = ds_state1_q[j]
-                # n = ds_state2_q[j]
-                # ρ_re = ρ_soa.re[n,m]
-                # ρ_im = ρ_soa.im[n,m]
-                # d_re = ds_q_re[j]
-                # d_im = ds_q_im[j]
-                # a1 = d_re * ρ_re - d_im * ρ_im
-                # a2 = d_re * ρ_im + d_im * ρ_re
-                # F_k_re += E_kq_re * a1 - E_kq_im * a2
-                # F_k_im += E_kq_im * a1 + E_kq_re * a2                
+                F_k_im += E_kq_im * a1 + E_kq_re * a2            
             end
-            # F -= F_k_re * ê[k]
-            # F -= im * F_k_im * ê[k]
             F -= (im * F_k_re - F_k_im) * ê[k] # multiply by im
         end
     end
 
-    # @inbounds for k ∈ 1:3
-    #     E_k = p.E_k[k]
-    #     @inbounds for q ∈ 1:3
-    #         d_q = @view d[:,:,q]
-    #         d_nnz_q = d_nnz[q]
-    #         @inbounds for j ∈ d_nnz_q
-    #             F -= E_k * d_q[j] * conj(ρ_soa[j])
-    #         end
-    #     end
-    # end
-
-    # @inbounds for i ∈ eachindex(fields)
-    #     s = fields.s[i]
-    #     x = sqrt(s) / (2 * √2)
-    #     k = fields.k[i]
-    #     E = fields.E[i]
-    #     ampl_factor = (x * im) * k
-    #     @inbounds for q ∈ 1:3
-    #         # With SI units, should be x = -h * Γ * sqrt(s) / (2 * √2 * p.λ)
-    #         ampl = ampl_factor * E[q]
-    #         # Note h * Γ / λ = 2π ħ * Γ / Λ = ħ * k * Γ, so this has units units of ħ k Γ
-    #         d_q = @view d[:,:,q]
-    #         d_nnz_q = d_nnz[q]
-    #         @inbounds for j ∈ d_nnz_q
-    #             F -= ampl * d_q[j] * conj(ρ_soa[j]) #+ conj(ampl * d_q[j] * ρ[j])
-    #         end
-    #     end
-    # end
     F += conj(F)
     return real.(F)
 end
@@ -164,7 +143,7 @@ function reset_force!(integrator)
     n = length(integrator.p.states)^2
     integrator.p.populations .= integrator.u[n+1:end-3] / integrator.p.period
 
-    force_reltol = 1e-3
+    force_reltol = 1e-3 # usually 1e-3
     if (force_diff_rel < force_reltol) #|| (force_diff < 1e-6)
         terminate!(integrator)
     else
@@ -174,6 +153,29 @@ function reset_force!(integrator)
     return nothing
 end
 export reset_force!
+
+""" 
+    Implement a callback to stop integrating when the force settles.
+
+    Keeps integrating the force until it does not change significantly over a time period.
+"""
+function integrate_to_equilibrium!(integrator)
+    integrated_avg_force = integrator.u[end-2:end] / integrator.t
+    force_diff = abs(norm(integrated_avg_force) - norm(integrator.p.force_last_period))
+    force_diff_rel = force_diff / norm(integrated_avg_force)
+    integrator.p.force_last_period = integrated_avg_force
+
+    n = length(integrator.p.states)^2
+    integrator.p.populations .= integrator.u[n+1:end-3] / integrator.p.period
+
+    force_reltol = 1e-3 # usually 1e-3
+    # println(force_diff_rel)
+    if (force_diff_rel < force_reltol) #|| (force_diff < 1e-6)
+        terminate!(integrator)
+    end
+    return nothing
+end
+export integrate_to_equilibrium!
 
 function force_scan(prob::T1, scan_values::T2, prob_func!::F1, param_func::F2, output_func::F3; n_threads=Threads.nthreads()) where {T1,T2,F1,F2,F3}
 
@@ -270,3 +272,53 @@ function force_scan_v2(prob::T1, scan_values::T2, prob_func!::F1, output_func::F
     return forces, populations
 end
 export force_scan_v2
+
+
+
+function force_stochastic(E_k, ds, ds_state1, ds_state2, ψ_soa, eiωt)
+""" Returns the expectation value of the dipole force operator: f = <-∇H_dipole>
+"""
+    F = @SVector Complex{Float64}[0,0,0]
+
+    @inbounds @fastmath for q ∈ 1:3
+        ds_q = ds[q]
+        ds_q_re = ds_q.re
+        ds_q_im = ds_q.im
+        ds_state1_q = ds_state1[q]
+        ds_state2_q = ds_state2[q]
+        for k ∈ 1:3
+            E_kq = E_k[k][q]
+            E_kq_re = real(E_kq)
+            E_kq_im = imag(E_kq)
+            F_k_re = 0.0
+            F_k_im = 0.0
+            for j ∈ eachindex(ds_q)
+                m = ds_state1_q[j] # excited state
+                n = ds_state2_q[j] # ground state
+                
+                # construct ρ_mn = c_m c_n^*
+                # ρ_mn = conj(ψ_soa[n]*eiωt[n]) * ψ_soa[m]*eiωt[m]
+
+                c_m = ψ_soa[m] * conj(eiωt[m]) # exp(-iωt) factor to transform to Heisenberg picture
+                c_n = ψ_soa[n] * conj(eiωt[n]) # exp(-iωt) factor to transform to Heisenberg picture
+
+                ρ_mn = c_m * conj(c_n)
+
+                ρ_re = real(ρ_mn)
+                ρ_im = imag(ρ_mn)
+                
+                d_re = ds_q_re[j]
+                d_im = ds_q_im[j]
+
+                a1 = d_re * ρ_re - d_im * ρ_im
+                a2 = d_re * ρ_im + d_im * ρ_re
+                F_k_re += E_kq_re * a1 - E_kq_im * a2
+                F_k_im += E_kq_im * a1 + E_kq_re * a2     
+            end
+            F -= (im * F_k_re - F_k_im) * ê[k] # multiply by im
+        end
+    end
+    F += conj(F)
+
+    return real.(F)
+end
