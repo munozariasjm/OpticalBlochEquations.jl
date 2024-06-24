@@ -1334,7 +1334,8 @@ function condition_simple(u,t,integrator)
         r += norm(u[p.n_states + p.n_excited + i])^2
     end
     r = sqrt(r)
-    if r >= 3e-3*k # terminate if the particle is more than 3 mm from the centre
+    # condition for capture
+    if real(u[p.n_states + p.n_excited + 1] + u[p.n_states + p.n_excited + 2]) / √2 >= 20e-3*k # terminate if the particle is more than 20 mm from the centre
        terminate!(integrator)
     end
     return _condition
@@ -1353,7 +1354,7 @@ function update_H_and_∇H(H, p, r, t)
     scalar = t/τ_bfield
     scalar = min(scalar, 1.0)
     
-    gradient_x = -scalar * p.sim_params.B_gradient * 1e2 / k/2
+    gradient_x = +scalar * p.sim_params.B_gradient * 1e2 / k/2
     gradient_y = +scalar * p.sim_params.B_gradient * 1e2 / k/2
     gradient_z = -scalar * p.sim_params.B_gradient * 1e2 / k
     
