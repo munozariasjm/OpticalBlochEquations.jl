@@ -1,9 +1,0 @@
---------------------------------------------------
-test 454 results 
---------------------------------------------------
-Molecules trapped: 31 out of 40 
-Final cloud size: (0.42, 0.62, 0.29) mm 
-Final temperature: (30.59, 14.85, 19.84) μK 
-Average photons scattered: 15148 
-Average scattering rate: 0.505 MHz 
---------------------------------------------------
