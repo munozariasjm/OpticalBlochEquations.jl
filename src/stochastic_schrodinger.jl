@@ -1475,26 +1475,23 @@ function ψ_stochastic_potential!(dψ, ψ, p, t)
     # ψ[(n_states + n_excited + 6 + 1):(n_states + n_excited + 6 + 3)] .= f/ψ_norm
     # dψ[(n_states + n_excited + 6 + 1):(n_states + n_excited + 6 + 3)] .= 0
 
-    # diffusion
-#     dt = 1e-2
-
-#     diffusion_direction = 1.0
-#     if rand() < 0.5
-#         diffusion_direction= -1
-#     end
-#     dψ[n_states + n_excited + 4] += p.diffusion_constant * diffusion_direction / (p.mass * sqrt(dt))
+    # diffusion_direction = 1.0
+    # if rand() < 0.5
+    #     diffusion_direction= -1
+    # end
+    # dψ[n_states + n_excited + 4] += p.diffusion_constant * diffusion_direction / (p.mass * sqrt(dt))
     
-#     diffusion_direction = 1.0
-#     if rand() < 0.5
-#         diffusion_direction= -1
-#     end
-#     dψ[n_states + n_excited + 5] += p.diffusion_constant * diffusion_direction / (p.mass * sqrt(dt))
+    # diffusion_direction = 1.0
+    # if rand() < 0.5
+    #     diffusion_direction= -1
+    # end
+    # dψ[n_states + n_excited + 5] += p.diffusion_constant * diffusion_direction / (p.mass * sqrt(dt))
     
-#     diffusion_direction = 1.0
-#     if rand() < 0.5
-#         diffusion_direction= -1
-#     end
-#     dψ[n_states + n_excited + 6] += p.diffusion_constant * diffusion_direction / (p.mass * sqrt(dt))
+    # diffusion_direction = 1.0
+    # if rand() < 0.5
+    #     diffusion_direction= -1
+    # end
+    # dψ[n_states + n_excited + 6] += p.diffusion_constant * diffusion_direction / (p.mass * sqrt(dt))
 
     return nothing
 end

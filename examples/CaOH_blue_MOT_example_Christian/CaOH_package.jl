@@ -30,7 +30,7 @@ function get_CaOH_package()
         Λ = 0, 
         N = 0:3
     )
-    X_state_basis = enumerate_states(HundsCaseB_Rot, QN_bounds)
+    X_state_basis = enumerate_states(HundsCaseB_LinearMolecule, QN_bounds)
 
     X_state_operator = :(
         BX * Rotation + 
@@ -69,7 +69,7 @@ function get_CaOH_package()
         Λ = (-1,1),
         J = 1/2:5/2
     )
-    A_state_basis = enumerate_states(HundsCaseA_Rot, QN_bounds)
+    A_state_basis = enumerate_states(HundsCaseA_LinearMolecule, QN_bounds)
 
     A_state_operator = :(
         T_A * DiagonalOperator +
@@ -101,7 +101,7 @@ function get_CaOH_package()
         Λ = (-1,1), 
         N = 0:3
     )
-    A_state_caseB_basis = enumerate_states(HundsCaseB_Rot, QN_bounds)
+    A_state_caseB_basis = enumerate_states(HundsCaseB_LinearMolecule, QN_bounds)
 
     ground_states = X_state_ham.states[5:16]
     excited_states = convert_basis(A_state_J12_pos_parity_states, A_state_caseB_basis)
@@ -148,7 +148,7 @@ function get_CaOH_package_12_A_states()
         Λ = 0, 
         N = 0:3
     )
-    X_state_basis = enumerate_states(HundsCaseB_Rot, QN_bounds)
+    X_state_basis = enumerate_states(HundsCaseB_LinearMolecule, QN_bounds)
 
     X_state_operator = :(
         BX * Rotation + 
@@ -190,7 +190,7 @@ function get_CaOH_package_12_A_states()
         Λ = (-1,1),
         J = 1/2:5/2
     )
-    A_state_basis = enumerate_states(HundsCaseA_Rot, QN_bounds)
+    A_state_basis = enumerate_states(HundsCaseA_LinearMolecule, QN_bounds)
 
     A_state_operator = :(
         T_A * DiagonalOperator +
@@ -222,7 +222,7 @@ function get_CaOH_package_12_A_states()
         Λ = (-1,1), 
         N = 0:3
     )
-    A_state_caseB_basis = enumerate_states(HundsCaseB_Rot, QN_bounds)
+    A_state_caseB_basis = enumerate_states(HundsCaseB_LinearMolecule, QN_bounds)
 
     ground_states = X_state_ham.states[5:16]
     excited_states = convert_basis(A_state_J12_pos_parity_states, A_state_caseB_basis)

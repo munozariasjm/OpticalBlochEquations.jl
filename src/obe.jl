@@ -135,6 +135,7 @@ function obe(ρ0, particle, states, fields, d, should_round_freqs, include_jumps
             push!(ds_state2[q+2], s′)
             push!(ds[q+2], dme)
             J = Jump(s, s′, q, dme)
+            # J = Jump(s, s′, q, norm(dme)) # is this needed? probably not!
             push!(Js, J)
         end
     end
@@ -484,6 +485,8 @@ function ρ!(dρ, ρ, p, τ)
     base_to_soa!(ρ, ρ_soa)
 
     # Update the Hamiltonian according to the new time τ
+    p.update_H_and_∇H(H₀, p, r, τ)
+    
     update_H_obes!(p, τ, r, H₀, fields, H, E_k, ds, ds_state1, ds_state2, Js)
 
     # Apply a transformation to go to the Heisenberg picture
@@ -495,17 +498,30 @@ function ρ!(dρ, ρ, p, τ)
 
     # Add the terms ∑ᵢJᵢρJᵢ†
     # We assume jumps take the form Jᵢ = sqrt(Γ)|g⟩⟨e| such that JᵢρJᵢ† = Γ^2|g⟩⟨g|ρₑₑ
+    # @inbounds for i ∈ eachindex(Js)
+    #     J = Js[i]
+    #     dρ_soa[J.s′, J.s′] += J.r^2 * ρ_soa[J.s, J.s]
+    #     @inbounds for j ∈ (i+1):length(Js)
+    #         J′ = Js[j]
+    #         if J.q == J′.q
+    #             val = J.r * J′.r * ρ_soa[J.s, J′.s]
+    #             dρ_soa[J.s′, J′.s′] += val
+    #             dρ_soa[J′.s′, J.s′] += conj(val)
+    #         end
+    #     end
+    # end
+    # 8/13/24 - updated to take norm of the jump rates (imaginary values were showing up if states had imaginary coeffs)
     @inbounds for i ∈ eachindex(Js)
         J = Js[i]
-        dρ_soa[J.s′, J.s′] += J.r^2 * ρ_soa[J.s, J.s]
-        @inbounds for j ∈ (i+1):length(Js)
-            J′ = Js[j]
-            if J.q == J′.q
-                val = J.r * J′.r * ρ_soa[J.s, J′.s]
-                dρ_soa[J.s′, J′.s′] += val
-                dρ_soa[J′.s′, J.s′] += conj(val)
-            end
-        end
+        dρ_soa[J.s′, J.s′] += norm(J.r)^2 * ρ_soa[J.s, J.s]
+        # @inbounds for j ∈ (i+1):length(Js)
+        #     J′ = Js[j]
+        #     if J.q == J′.q
+        #         val = conj(J.r) * J′.r * ρ_soa[J.s, J′.s]
+        #         dρ_soa[J.s′, J′.s′] += val
+        #         dρ_soa[J′.s′, J.s′] += conj(val)
+        #     end
+        # end
     end
 
     # The left-hand side also needs to be transformed into the Heisenberg picture
@@ -555,15 +571,15 @@ function ρ_updated!(dρ, ρ, p, t)
     # We assume jumps take the form Jᵢ = sqrt(Γ)|g⟩⟨e| such that JᵢρJᵢ† = Γ^2|g⟩⟨g|ρₑₑ
     @inbounds for i ∈ eachindex(Js)
         J = Js[i]
-        dρ_soa[J.s′, J.s′] += J.r^2 * ρ_soa[J.s, J.s]
-        @inbounds for j ∈ (i+1):length(Js)
-            J′ = Js[j]
-            if J.q == J′.q
-                val = J.r * J′.r * ρ_soa[J.s, J′.s]
-                dρ_soa[J.s′, J′.s′] += val
-                dρ_soa[J′.s′, J.s′] += conj(val)
-            end
-        end
+        dρ_soa[J.s′, J.s′] += norm(J.r)^2 * ρ_soa[J.s, J.s]
+        # @inbounds for j ∈ (i+1):length(Js)
+        #     J′ = Js[j]
+        #     if J.q == J′.q
+        #         val = J.r * J′.r * ρ_soa[J.s, J′.s]
+        #         dρ_soa[J.s′, J′.s′] += val
+        #         dρ_soa[J′.s′, J.s′] += conj(val)
+        #     end
+        # end
     end
 
     # The left-hand side also needs to be transformed into the Heisenberg picture

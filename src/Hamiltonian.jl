@@ -14,6 +14,14 @@ function set_H_zero!(H)
     return nothing
 end
 
+function set_H_to_H₀!(H, H₀)
+    @turbo for i ∈ eachindex(H)
+        H.re[i] = H₀.re[i]
+        H.im[i] = H₀.im[i]
+    end
+    return nothing
+end
+
 function update_H!(p, τ, r, fields, H, E_k, ds, ds_state1, ds_state2, Js)
  
     set_H_zero!(H)
@@ -178,7 +186,9 @@ export update_H_nocomplex!
 
 function update_H_obes!(p, τ, r, H₀, fields, H, E_k, ds, ds_state1, ds_state2, Js)
 
-    set_H_zero!(H)
+    # set_H_zero!(H)
+    set_H_to_H₀!(H, H₀)
+    
     # p.update_H(H, p, r, τ)
 
     update_fields!(fields, r, τ)

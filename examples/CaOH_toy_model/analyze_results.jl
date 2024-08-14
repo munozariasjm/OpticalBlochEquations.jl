@@ -56,7 +56,29 @@ function plot_all_velocities(results, direction)
         end
     end    
 end
+function plot_survival_scattering_rate(param, results)
+    trapped = get_trapped_indicies(param, results)
+    plot(legend=false, xlabel="time (ms)", ylabel="MHz")
+   for p in trapped
+      plot!(results.times[p], results.A_populations[p] .* Γ * 1e-6)
+   end
+   plot!(title="scattering rate")
 
+   out = []
+   for i in 1:length(results.times[trapped[1]])
+      n_total = 0
+       n_num = 0.01
+       for p in trapped
+           if length(results.times[p]) >= i
+               n_total += results.A_populations[p][i]
+               n_num += 1
+           end
+       end
+       push!(out, n_total/n_num)
+   end
+   plot!(results.times[trapped[1]], out.*Γ*1e-6, linewidth=3, color=:red)
+   return out.*Γ*1e-6   
+end
 
                                                                                            
 function plot_survival_velocities(results, direction)
@@ -691,8 +713,6 @@ function merge_result_lists(list_of_lists)
     end
     return merged_list
 end                           
-
-
 
 
 

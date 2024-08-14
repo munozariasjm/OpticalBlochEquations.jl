@@ -1,7 +1,7 @@
 """
 Instantiate parameters to solve Schrödinger's equation.
 """
-function schrödinger(particle, states, H₀, fields, d, d_mag, ψ, should_round_freqs; 
+function schrödinger(particle, states, H₀, fields, d, d_mag, ψ, should_round_freqs, update_H; 
     extra_p=nothing, Γ=2π, λ=1.0, freq_res=1e-2)
 
     period = 2π / freq_res
@@ -79,7 +79,9 @@ function schrödinger(particle, states, H₀, fields, d, d_mag, ψ, should_roun
         period=period, k=k, freq_res=freq_res, H₀=H₀, 
         E=E, E_k=E_k,
         ds=ds, ds_state1=ds_state1, ds_state2=ds_state2,
-        extra_p=extra_p)
+        extra_p=extra_p,
+        update_H=update_H
+        )
 
     return p
 end
@@ -98,6 +100,7 @@ function ψ!(dψ, ψ, p, τ)
     base_to_soa!(ψ, ψ_soa)
     
     update_H!(p, τ, r, fields, H, E_k, ds, ds_state1, ds_state2, Js)
+    p.update_H(H, p, τ)
 
     # add_to_H!(H, H₀)
     

@@ -30,7 +30,7 @@ function get_CaOH_package()
         Λ = 0, 
         N = 0:3
     )
-    X_state_basis = enumerate_states(HundsCaseB_Rot, QN_bounds)
+    X_state_basis = enumerate_states(HundsCaseB_LinearMolecule, QN_bounds)
 
     X_state_operator = :(
         BX * Rotation + 
@@ -57,7 +57,7 @@ function get_CaOH_package()
     X_state_ham = add_to_H(X_state_ham, :B_z, (gS * _μB * 1e-6) * Zeeman_z)
     X_state_ham.parameters.B_x = 0.
     X_state_ham.parameters.B_y = 0.
-    X_state_ham.parameters.B_z = 1e-5
+    X_state_ham.parameters.B_z = -1e-5
 
     evaluate!(X_state_ham)
     QuantumStates.solve!(X_state_ham)
@@ -69,7 +69,7 @@ function get_CaOH_package()
         Λ = (-1,1),
         J = 1/2:5/2
     )
-    A_state_basis = enumerate_states(HundsCaseA_Rot, QN_bounds)
+    A_state_basis = enumerate_states(HundsCaseA_LinearMolecule, QN_bounds)
 
     A_state_operator = :(
         T_A * DiagonalOperator +
@@ -101,7 +101,7 @@ function get_CaOH_package()
         Λ = (-1,1), 
         N = 0:3
     )
-    A_state_caseB_basis = enumerate_states(HundsCaseB_Rot, QN_bounds)
+    A_state_caseB_basis = enumerate_states(HundsCaseB_LinearMolecule, QN_bounds)
 
     ground_states = X_state_ham.states[5:16]
     excited_states = convert_basis(A_state_J12_pos_parity_states, A_state_caseB_basis)
@@ -121,9 +121,9 @@ function get_CaOH_package()
     tdms_between_states!(d_ge, basis_tdms, ground_states, excited_states)
     d[1:12, 13:16, :] .= d_ge
     
-#     Zeeman_x(state, state′) = (Zeeman(state, state′,-1) - Zeeman(state, state′,1))/sqrt(2)
-#     Zeeman_y(state, state′) = im*(Zeeman(state, state′,-1) + Zeeman(state, state′,1))/sqrt(2)
-#     Zeeman_z(state, state′) = Zeeman(state, state′, 0)
+    #     Zeeman_x(state, state′) = (Zeeman(state, state′,-1) - Zeeman(state, state′,1))/sqrt(2)
+    #     Zeeman_y(state, state′) = im*(Zeeman(state, state′,-1) + Zeeman(state, state′,1))/sqrt(2)
+    #     Zeeman_z(state, state′) = Zeeman(state, state′, 0)
 
     Zeeman_x_mat = StructArray(operator_to_matrix_zero_padding2(Zeeman_x, ground_states, excited_states) .* (2π*gS*_μB/Γ))
     Zeeman_y_mat = StructArray(operator_to_matrix_zero_padding2(Zeeman_y, ground_states, excited_states) .* (2π*gS*_μB/Γ))

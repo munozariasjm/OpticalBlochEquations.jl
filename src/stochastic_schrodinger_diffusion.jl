@@ -60,7 +60,6 @@ function schrodinger_stochastic_diffusion(
     end
     
     mat_aux = deepcopy(H) # an auxiliary matrix
-    
 
     ∇H_x = deepcopy(H) # gradient of dipole Hamiltonian (operator!)
     ∇H_y = deepcopy(H)
@@ -74,7 +73,6 @@ function schrodinger_stochastic_diffusion(
     for i in 1:n_states
         U0_dt[i,i] = exp(-im*dt*ω[i])
     end
-    
 
     # Compute cartesian indices to indicate nonzero transition dipole moments in `d`
     # Indices below the diagonal of the Hamiltonian are removed, since those are defined via taking the conjugate
@@ -157,7 +155,6 @@ export schrodinger_stochastic_diffusion
 function ψ_stochastic_diffusion!(dψ, ψ, p, t)
     @unpack ψ_soa, dψ_soa, r, ω, fields, H, H₀, ∇H, E_k, ds, ds_state1, ds_state2, Js, eiωt, states, extra_data, mass, k, Γ = p
 
-    
     n_states = length(states)
     n_excited = p.n_excited
     
@@ -173,11 +170,8 @@ function ψ_stochastic_diffusion!(dψ, ψ, p, t)
     end
     
     base_to_soa!(ψ, ψ_soa)
-    
     update_H_dipole!(p, t,r, fields, H, E_k, ds, ds_state1, ds_state2, Js) # molecule-light Hamiltonian in schrodinger picutre
-    
     update_eiωt!(eiωt, ω, t)
-    
     
     ∇H = p.update_H_and_∇H(H₀, p, r, t) # Zeeman and ODT hamiltonian in schrodinger picutre
     
@@ -187,16 +181,11 @@ function ψ_stochastic_diffusion!(dψ, ψ, p, t)
         H.im[i] += H₀.im[i]
     end 
     
-    
     update_evolution_operator!(p)
     
     update_momentum_operator!(p, 1) 
-    
     update_momentum_operator!(p, 2)
-    
     update_momentum_operator!(p, 3)
-    
-
     
     Heisenberg!(H, eiωt)
   
@@ -209,7 +198,6 @@ function ψ_stochastic_diffusion!(dψ, ψ, p, t)
     #     f_z = -1*operator_matrix_expectation_complex(p.∇H_z, ψ_soa)[1]
     ## they produce the same answer.
     
-
     # add force due to conservative potential
     H₀_expectation = operator_matrix_expectation_complex(H₀, ψ_soa)[1]
     f += ∇H .* (-H₀_expectation)  
@@ -218,7 +206,7 @@ function ψ_stochastic_diffusion!(dψ, ψ, p, t)
     g = -9.81 / (Γ^2/k)
     f += SVector{3,Float64}(0,mass*g,0)
 
-    ##  Calculate change in the state vector ## 
+    # calculate change in the state vector 
     mul_by_im_minus!(ψ_soa)
     mul_turbo!(dψ_soa, H, ψ_soa)
     soa_to_base!(dψ, dψ_soa)
@@ -280,7 +268,7 @@ function update_evolution_operator!(p)
         p.U_t_dagger.im[i] += p.mat_aux2.im[i]
     end  
     
-    #     # normalize the determinant of U and U dagger
+    # normalize the determinant of U and U dagger
     n_states = length(p.states)
     rescale_det = norm(det(p.U_t))^(1/n_states)
     
@@ -291,13 +279,13 @@ function update_evolution_operator!(p)
         p.U_t_dagger.im[i] /= rescale_det
     end
 
-
+    return nothing
 end
 
 
 
 function update_momentum_operator!(p, k)
-    """ Update the (Heisenberg picutre) momentum operator """
+    """ Update the (Heisenberg picture) momentum operator """
     dt = p.dt
     P_k = p.mat_aux
     f_k = p.mat_aux1
@@ -323,7 +311,6 @@ function update_momentum_operator!(p, k)
 
 end
 
-
 function SE_collapse_pol_diffusion!(integrator)
 
     p = integrator.p
@@ -333,9 +320,6 @@ function SE_collapse_pol_diffusion!(integrator)
     d = p.d
     ψ = integrator.u
     
-    
-    
-    
     mul_turbo!(p.Px_sq, p.P_x, p.P_x)
     σ_px = operator_matrix_expectation_complex(p.Px_sq, p.ψ_prev)[1] - ((operator_matrix_expectation_complex(p.P_x, p.ψ_prev)[1]))^2 
     
@@ -344,9 +328,6 @@ function SE_collapse_pol_diffusion!(integrator)
     
     mul_turbo!(p.Pz_sq, p.P_z, p.P_z)
     σ_pz = operator_matrix_expectation_complex(p.Pz_sq, p.ψ_prev)[1] - ((operator_matrix_expectation_complex(p.P_z, p.ψ_prev)[1]))^2
-    
-
-  
     
     # A photon is observed.
     # Measure the polarization of the photon along z.
