@@ -514,14 +514,14 @@ function ρ!(dρ, ρ, p, τ)
     @inbounds for i ∈ eachindex(Js)
         J = Js[i]
         dρ_soa[J.s′, J.s′] += norm(J.r)^2 * ρ_soa[J.s, J.s]
-        # @inbounds for j ∈ (i+1):length(Js)
-        #     J′ = Js[j]
-        #     if J.q == J′.q
-        #         val = conj(J.r) * J′.r * ρ_soa[J.s, J′.s]
-        #         dρ_soa[J.s′, J′.s′] += val
-        #         dρ_soa[J′.s′, J.s′] += conj(val)
-        #     end
-        # end
+        @inbounds for j ∈ (i+1):length(Js)
+            J′ = Js[j]
+            if J.q == J′.q
+                val = conj(J.r) * J′.r * ρ_soa[J.s, J′.s]
+                dρ_soa[J.s′, J′.s′] += val
+                dρ_soa[J′.s′, J.s′] += conj(val)
+            end
+        end
     end
 
     # The left-hand side also needs to be transformed into the Heisenberg picture
@@ -572,14 +572,14 @@ function ρ_updated!(dρ, ρ, p, t)
     @inbounds for i ∈ eachindex(Js)
         J = Js[i]
         dρ_soa[J.s′, J.s′] += norm(J.r)^2 * ρ_soa[J.s, J.s]
-        # @inbounds for j ∈ (i+1):length(Js)
-        #     J′ = Js[j]
-        #     if J.q == J′.q
-        #         val = J.r * J′.r * ρ_soa[J.s, J′.s]
-        #         dρ_soa[J.s′, J′.s′] += val
-        #         dρ_soa[J′.s′, J.s′] += conj(val)
-        #     end
-        # end
+        @inbounds for j ∈ (i+1):length(Js)
+            J′ = Js[j]
+            if J.q == J′.q
+                val = conj(J.r) * J′.r * ρ_soa[J.s, J′.s]
+                dρ_soa[J.s′, J′.s′] += val
+                dρ_soa[J′.s′, J.s′] += conj(val)
+            end
+        end
     end
 
     # The left-hand side also needs to be transformed into the Heisenberg picture

@@ -5,7 +5,7 @@ end
 function gaussian_intensity_along_axes(r, axes, centers)
     """1/e^2 width = 5mm Gaussian beam """
     d2 = (r[axes[1]] - centers[1])^2 + (r[axes[2]] - centers[2])^2   
-    return exp(-2*d2/(5e-3/(1/k))^2)
+    return exp(-2*d2/(20e-3/(1/k))^2)
 end
 
 function define_lasers(
@@ -27,7 +27,13 @@ function define_lasers(
         s_imbalance,
         retro_loss,
         off_center,
-        pointing_error
+        pointing_error,
+        s5,
+        s6,
+        Δ5,
+        Δ6,
+        pol5_x,
+        pol6_x
     )
     
     ω1 = 2π * (energy(states[end]) - energy(states[1])) + Δ1
@@ -95,7 +101,6 @@ function define_lasers(
     k̂6 = -kz; ϵ_func6 = ϵ_(ϵ6, ϵ5); laser6 = Field(k̂6, ϵ_func6, ω1, s_gaussian(s1z*(1-retro_loss), (1,2), (z_center_x, z_center_y)))
 
     lasers_1 = [laser1, laser2, laser3, laser4, laser5, laser6]
-    # lasers_1 = [laser2, laser4]
     
     s2x = s2 * (1+s_imbalance[1]*sx_rand)
     s2y = s2 * (1+s_imbalance[2]*sy_rand)
@@ -123,7 +128,6 @@ function define_lasers(
     ϵ_func12 = ϵ_(ϵ12, ϵ11); laser12 = Field(k̂12, ϵ_func12, ω2, s_gaussian(s2z*(1-retro_loss), (1,2), (z_center_x, z_center_y)))
 
     lasers_2 = [laser7, laser8, laser9, laser10, laser11, laser12]
-    # lasers_2 = [laser8, laser10]
 
     s3x = s3 * (1+s_imbalance[1]*sx_rand)
     s3y = s3 * (1+s_imbalance[2]*sy_rand)
@@ -151,14 +155,13 @@ function define_lasers(
     ϵ_func18 = ϵ_(ϵ18, ϵ17); laser18 = Field(k̂18, ϵ_func18, ω3, s_gaussian(s3z*(1-retro_loss), (1,2), (z_center_x, z_center_y)))
 
     lasers_3 = [laser13, laser14, laser15, laser16, laser17, laser18]
-    # lasers_3 = [laser14, laser16]
 
-    k̂19 = +kx; 
-    k̂20 = -kx; 
-    k̂21 = +ky; 
-    k̂22 = -ky; 
-    k̂23 = +kz;
-    k̂24 = -kz;
+    k̂19 = +kx 
+    k̂20 = -kx 
+    k̂21 = +ky 
+    k̂22 = -ky 
+    k̂23 = +kz
+    k̂24 = -kz
     
     s4x = s4 * (1+s_imbalance[1]*sx_rand)
     s4y = s4 * (1+s_imbalance[2]*sy_rand)
@@ -179,8 +182,33 @@ function define_lasers(
     ϵ_func24 = ϵ_(ϵ24, ϵ23); laser24 = Field(k̂24, ϵ_func24, ω4, s_gaussian(s4z*(1-retro_loss), (1,2), (z_center_x, z_center_y)))
     
     lasers_4 = [laser19, laser20, laser21, laser22, laser23, laser24]
-    # lasers_4 = [laser20, laser22]
+
+    # create "slowing" lasers that sit "behind" the MOT and pushes molecules back into the MOT
+    ω5 = 2π * (energy(states[end]) - energy(states[1])) + Δ5
+    ω6 = 2π * (energy(states[end]) - energy(states[5])) + Δ6
     
-    lasers = [lasers_1; lasers_2; lasers_3; lasers_4]
+    slowing_beams_displacement = 12e-3 / (1 / k)
+
+    k̂25 = -kx
+    k̂26 = -ky
+    
+    ϵ25 = ϕs[1]*rotate_pol(pol5_x, k̂25)
+    ϵ26 = ϕs[2]*rotate_pol(pol5_x, k̂26)
+    
+    ϵ_func25 = ϵ_(ϵ25, ϵ26); laser25 = Field(k̂25, ϵ_func25, ω5, s_gaussian(s5, (2,3), (slowing_beams_displacement, 0.)))
+    ϵ_func26 = ϵ_(ϵ26, ϵ25); laser26 = Field(k̂26, ϵ_func26, ω5, s_gaussian(s5, (1,3), (slowing_beams_displacement, 0.)))
+
+    k̂29 = -kx
+    k̂30 = -ky
+    
+    ϵ29 = ϕs[1]*rotate_pol(pol6_x, k̂29)
+    ϵ30 = ϕs[2]*rotate_pol(pol6_x, k̂30)
+    
+    ϵ_func29 = ϵ_(ϵ29, ϵ30); laser29 = Field(k̂29, ϵ_func29, ω6, s_gaussian(s6, (2,3), (slowing_beams_displacement, 0.)))
+    ϵ_func30 = ϵ_(ϵ30, ϵ29); laser30 = Field(k̂30, ϵ_func30, ω6, s_gaussian(s6, (1,3), (slowing_beams_displacement, 0.)))
+    
+    slowing_lasers = [laser25, laser26, laser29, laser30]
+    
+    lasers = [lasers_1; lasers_2; lasers_3; lasers_4; slowing_lasers]
 
 end
